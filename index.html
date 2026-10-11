@@ -154,7 +154,7 @@ textarea{resize:vertical;min-height:80px}
     <div class="section-title">Informações</div>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último backup:</strong> <span id="lastBackup">nunca</span></p>
-    <p class="hint">Versão 3.3 | Escala Técnica ArPec</p>
+    <p class="hint">Versão 3.4 | Escala Técnica ArPec</p>
   </div>
   <div class="section">
     <div class="section-title">Exportar</div>
@@ -184,12 +184,14 @@ textarea{resize:vertical;min-height:80px}
     <div class="form-group"><label>Área (ha)</label><input type="number" id="area" placeholder="0,00" step="0.01" min="0" inputmode="decimal" oninput="autoLotacao()"></div>
     <div class="form-group"><label>Forrageira *</label><input type="text" id="forrageira" list="lstForr" placeholder="ex: Brachiaria brizantha" oninput="updAltura()"><datalist id="lstForr"></datalist></div>
     <div class="form-group"><label>Categoria Animal</label><input type="text" id="categoria" placeholder="ex: Novilhas"></div>
-    <div class="row">
-      <div class="form-group" style="flex:1"><label>Nº de animais</label><input type="number" id="cab" min="0" inputmode="numeric" placeholder="ex: 78" oninput="autoLotacao()"></div>
-      <div class="form-group" style="flex:1"><label>Peso médio (kg)</label><input type="number" id="pesoMedioAv" min="0" step="0.1" inputmode="decimal" placeholder="ex: 322" oninput="autoLotacao()"></div>
+    <div class="form-group check" style="margin-bottom:8px"><label><input type="checkbox" id="vazio" onchange="autoLotacao()"> Sem animais (em descanso)</label></div>
+    <div class="row" id="animaisBox">
+      <div class="form-group" style="flex:1"><label>Nº de animais *</label><input type="number" id="cab" min="0" inputmode="numeric" placeholder="ex: 78" oninput="autoLotacao()"></div>
+      <div class="form-group" style="flex:1"><label>Peso médio (kg) *</label><input type="number" id="pesoMedioAv" min="0" step="0.1" inputmode="decimal" placeholder="ex: 322" oninput="autoLotacao()"></div>
     </div>
-    <div class="form-group"><label>Lotação (UA/ha)</label>
-      <div class="row"><input type="number" id="lotacao" placeholder="0,00" step="0.01" min="0" inputmode="decimal" style="flex:2"><button class="btn-outline btn-small" style="flex:1" onclick="openCalcFromEval()">🧮 Calcular</button></div>
+    <div class="form-group"><label>Lotação (UA/ha) – calculada</label>
+      <input type="number" id="lotacao" placeholder="calculada pelo nº, peso e área" readonly style="background:#f3f3f3">
+      <span class="hint">(Nº animais × peso médio ÷ 450) ÷ área</span>
     </div>
   </div>
 
@@ -567,7 +569,12 @@ function fillDatalists(){
   $('lstForr').innerHTML = uniq('forrageira').map(v => `<option value="${esc(v)}">`).join('');
 }
 const FIELDS = ['fazenda','modulo','piquete','area','forrageira','categoria','cab','pesoMedioAv','lotacao','acao','prazo','observacoes'];
-function autoLotacao(){ const n = P($('cab').value), pm = P($('pesoMedioAv').value), a = P($('area').value); if (n > 0 && pm > 0 && a > 0) $('lotacao').value = ((n * pm / 450) / a).toFixed(2); }
+function autoLotacao(){
+  const vz = $('vazio').checked; $('animaisBox').style.display = vz ? 'none' : 'flex';
+  if (vz) { $('lotacao').value = '0'; return; }
+  const n = P($('cab').value), pm = P($('pesoMedioAv').value), a = P($('area').value);
+  $('lotacao').value = (n > 0 && pm > 0 && a > 0) ? ((n * pm / 450) / a).toFixed(2) : '';
+}
 
 function resetForm(){
   ratings = {}; draftPhotos = []; removedPhotoIds = [];
@@ -575,7 +582,7 @@ function resetForm(){
   $('evalDate').value = todayISO();
   document.querySelectorAll('input[name="problema"]').forEach(cb => cb.checked = false);
   document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
-  $('alturas').value = ''; $('sistema').value = 'Rotacionado'; $('momento').value = 'Entrada';
+  $('alturas').value = ''; $('sistema').value = 'Rotacionado'; $('momento').value = 'Entrada'; $('vazio').checked = false; autoLotacao();
   renderDraftPhotos(); updateResult(); updAltura();
 }
 function showNewEvaluation(){
@@ -608,12 +615,19 @@ async function saveEvaluation(){
   }
   const nota = calcNota(ratings);
   if (!nota) { alert('Avalie todos os 6 indicadores'); return; }
+  if (!$('vazio').checked) {
+    if (!(P($('cab').value) > 0)) { alert('Informe o nº de animais (ou marque "Sem animais").'); $('cab').focus(); return; }
+    if (!(P($('pesoMedioAv').value) > 0)) { alert('Informe o peso médio dos animais.'); $('pesoMedioAv').focus(); return; }
+    if (!(P($('area').value) > 0)) { alert('Informe a área (ha) para calcular a lotação.'); $('area').focus(); return; }
+  }
+  autoLotacao();
 
   const base = editingId ? allEvaluations.find(e => e.id === editingId) : null;
   const ev = Object.assign({}, base || {id: Date.now(), timestamp: new Date().toISOString()});
   ev.data = $('evalDate').value;
   FIELDS.forEach(f => ev[f] = $(f).value.trim());
-  ev.ratings = {...ratings}; ev.nota = nota;
+  ev.ratings = {...ratings}; ev.nota = nota; ev.vazio = $('vazio').checked;
+  if (ev.vazio) { ev.cab = ''; ev.pesoMedioAv = ''; ev.lotacao = '0'; }
   ev.problemas = [...document.querySelectorAll('input[name="problema"]:checked')].map(cb => cb.value);
   const AL = alturaInfo(); ev.sistema = $('sistema').value; ev.momento = ev.sistema === 'Rotacionado' ? $('momento').value : '';
   ev.alturas = AL.vals; ev.alturaMedia = AL.media; ev.alturaRef = AL.ref; ev.alturaDiag = AL.diag; ev.especieRef = AL.esp;
@@ -638,6 +652,8 @@ async function editEvaluation(){
   resetForm(); fillDatalists(); setupPick(); editingId = ev.id;
   $('evalDate').value = ev.data || todayISO();
   FIELDS.forEach(f => $(f).value = ev[f] ?? '');
+  $('vazio').checked = !!ev.vazio; autoLotacao();
+  if (!ev.vazio && !(P(ev.cab) > 0) && P(ev.lotacao) > 0) setTimeout(() => alert(`Esta avaliação foi salva sem nº de cabeças (lotação ${String(ev.lotacao).replace('.', ',')} UA/ha). Informe o nº de animais e o peso médio para salvar.`), 300);
   Object.entries(ev.ratings || {}).forEach(([k,v]) => setRating(k, v));
   (ev.problemas || []).forEach(p => { const cb = [...document.querySelectorAll('input[name="problema"]')].find(c => c.value === p); if (cb) cb.checked = true; });
   draftPhotos = (await getFotosFor(ev)).map(f => ({id: f.id, tipo: f.tipo, data: f.data}));
@@ -712,6 +728,7 @@ async function showDetail(id){
   const rows = [
     ['Data', fmtDate(e.data)], ['Fazenda', e.fazenda], ['Módulo', e.modulo], ['Piquete', e.piquete],
     ['Área (ha)', e.area ? num(e.area) : '-'], ['Forrageira', e.forrageira], ['Categoria', e.categoria || '-'],
+    ['Animais', e.vazio ? 'Sem animais (descanso)' : (P(e.cab) > 0 ? `${e.cab} cab · ${num(e.pesoMedioAv,0)} kg` : 'não informado')],
     ['Lotação (UA/ha)', e.lotacao ? num(e.lotacao) : '-'],
     ...IND.map(i => [i.n, e.ratings?.[i.k] ? `${e.ratings[i.k]} – ${i.d[e.ratings[i.k]]}` : '-']),
     ['Altura do pasto', alturaTxt(e)], ...(e.alturaDiag ? [['Situação da altura', e.alturaDiag]] : []),
@@ -754,7 +771,7 @@ async function printEvaluation(){
       <tr><th>Fazenda</th><td>${esc(e.fazenda)}</td><th>Data</th><td>${fmtDate(e.data)}</td></tr>
       <tr><th>Módulo / Área</th><td>${esc(e.modulo)}</td><th>Piquete</th><td>${esc(e.piquete)}</td></tr>
       <tr><th>Forrageira</th><td>${esc(e.forrageira)}</td><th>Área (ha)</th><td>${e.area ? num(e.area) : '-'}</td></tr>
-      <tr><th>Categoria animal</th><td>${esc(e.categoria || '-')}</td><th>Lotação (UA/ha)</th><td>${e.lotacao ? num(e.lotacao) : '-'}</td></tr>
+      <tr><th>Categoria / animais</th><td>${esc(e.categoria || '-')}${e.vazio ? ' · sem animais (descanso)' : (P(e.cab) > 0 ? ` · ${e.cab} cab · ${num(e.pesoMedioAv,0)} kg` : '')}</td><th>Lotação (UA/ha)</th><td>${e.lotacao ? num(e.lotacao) : '-'}</td></tr>
     </table>
     <h3>Avaliação dos indicadores</h3>
     <table>
@@ -1243,6 +1260,9 @@ function saveLot(){
   const f = findFaz($('lotFaz').value);
   if ($('lotReforma').value === '' || $('lotAlagado').value === '') { alert('Informe quantos hectares estão em reforma e quantos estão alagados (use 0 se não houver).'); ($('lotReforma').value === '' ? $('lotReforma') : $('lotAlagado')).focus(); return; }
   const R = calcLot(); if (!(R.ua > 0)) { alert('Informe os animais em pelo menos um piquete/pasto.'); return; }
+  const falta = [];
+  for (const u of f.unidades) for (const a of u.areas) for (const l of (lotOcup[a.id] || []).filter(lotAtivo)) if (!(P(l.n) > 0 && P(l.peso) > 0)) falta.push(`${u.nome} – ${a.nome}`);
+  if (falta.length) { alert(`Informe nº de cabeças e peso médio em:\n\n• ${[...new Set(falta)].join('\n• ')}`); return; }
   const ocup = {}; Object.entries(lotOcup).forEach(([k, ls]) => { const v = ls.filter(lotAtivo); if (v.length) ocup[k] = v; });
   LOTS.push({id: Date.now(), data: $('lotData').value || todayISO(), fazendaId: f.id, fazenda: f.nome, reforma: R.reforma, alagado: R.alagado, ocup, res: R});
   saveLots(); clearDraft(f.id); renderLotHist(); alert(`✅ Lotação salva: ${num(R.lotFaz)} UA/ha`);
@@ -1402,7 +1422,7 @@ function aplicarManejoImportado(lista){
 
 function puxarDasAvaliacoes(){
   const f = findFaz($('lotFaz').value), ate = $('lotData').value || todayISO();
-  const avs = allEvaluations.filter(e => norm(e.fazenda) === norm(f.nome) && (e.data || '') <= ate && ((P(e.cab) > 0) || (P(e.lotacao) > 0)));
+  const avs = allEvaluations.filter(e => norm(e.fazenda) === norm(f.nome) && (e.data || '') <= ate && !e.vazio && ((P(e.cab) > 0) || (P(e.lotacao) > 0)));
   if (!avs.length) { alert(`Não encontrei avaliações de ${f.nome} com animais ou lotação informados (até ${fmtDate(ate)}).`); return; }
   let n = 0, semCab = 0, datas = []; const naoAchou = new Set(avs.map(e => `${e.modulo} / ${e.piquete}`));
   for (const u of f.unidades) for (const a of u.areas) {
