@@ -154,7 +154,7 @@ textarea{resize:vertical;min-height:80px}
     <div class="section-title">Informações</div>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último backup:</strong> <span id="lastBackup">nunca</span></p>
-    <p class="hint">Versão 3.0 | Escala Técnica ArPec</p>
+    <p class="hint">Versão 3.1 | Escala Técnica ArPec</p>
   </div>
   <div class="section">
     <div class="section-title">Exportar</div>
@@ -182,7 +182,7 @@ textarea{resize:vertical;min-height:80px}
     <div class="form-group"><label>Módulo / Setor *</label><input type="text" id="modulo" placeholder="ex: Módulo 5 ou Setor 2"></div>
     <div class="form-group"><label>Piquete / Pasto *</label><input type="text" id="piquete" placeholder="ex: Piquete A"></div>
     <div class="form-group"><label>Área (ha)</label><input type="number" id="area" placeholder="0,00" step="0.01" min="0" inputmode="decimal"></div>
-    <div class="form-group"><label>Forrageira *</label><input type="text" id="forrageira" list="lstForr" placeholder="ex: Brachiaria brizantha"><datalist id="lstForr"></datalist></div>
+    <div class="form-group"><label>Forrageira *</label><input type="text" id="forrageira" list="lstForr" placeholder="ex: Brachiaria brizantha" oninput="updAltura()"><datalist id="lstForr"></datalist></div>
     <div class="form-group"><label>Categoria Animal</label><input type="text" id="categoria" placeholder="ex: Novilhas"></div>
     <div class="form-group"><label>Lotação (UA/ha)</label>
       <div class="row"><input type="number" id="lotacao" placeholder="0,00" step="0.01" min="0" inputmode="decimal" style="flex:2"><button class="btn-outline btn-small" style="flex:1" onclick="openCalcFromEval()">🧮 Calcular</button></div>
@@ -192,6 +192,19 @@ textarea{resize:vertical;min-height:80px}
   <div class="section">
     <div class="section-title">Avaliação (1 a 5)</div>
     <div id="indicators"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Altura do pasto</div>
+    <div class="row">
+      <div class="form-group" style="flex:1"><label>Sistema</label><select id="sistema" onchange="updAltura()"><option>Rotacionado</option><option>Contínuo</option></select></div>
+      <div class="form-group" style="flex:1" id="momentoBox"><label>Momento</label><select id="momento" onchange="updAltura()"><option value="Entrada">Entrada (pré)</option><option value="Saída">Saída (pós)</option></select></div>
+    </div>
+    <div class="form-group" style="margin-bottom:8px"><label>Medições de altura (cm)</label>
+      <input type="text" id="alturas" placeholder="ex: 45 50 38 52 47" oninput="updAltura()" autocomplete="off">
+      <span class="hint">Separe as medições com espaço. O app calcula a média.</span>
+    </div>
+    <div id="altBox" class="unit-foot"><span class="hint">Informe as medições para comparar com a referência.</span></div>
   </div>
 
   <div class="section">
@@ -299,6 +312,15 @@ textarea{resize:vertical;min-height:80px}
     </div>
     <input type="file" id="restoreInput" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
     <p class="hint" style="margin-top:10px">Uso do armazenamento: <span id="storageInfo">-</span></p>
+  </div>
+  <div class="section">
+    <div class="section-title">Referências de altura (cm)</div>
+    <p class="hint" style="margin-bottom:8px">Usadas na avaliação. A forrageira é reconhecida pelas palavras-chave (ex.: "marandu" → Braquiárias). Tolerância de ±10% no rotacionado.</p>
+    <div id="manejoList"></div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn-outline btn-small" onclick="addEspecie()">➕ Espécie</button>
+      <button class="btn-primary btn-small" onclick="saveManejo()">Salvar referências</button>
+    </div>
   </div>
   <div class="section">
     <div class="section-title">Instalar na tela inicial</div>
@@ -482,6 +504,7 @@ async function loadConfig(){
   try { cfg = JSON.parse(localStorage.getItem(LS_CFG)) || {}; } catch(e){ cfg = {}; }
   if (!cfg.resp) cfg.resp = 'Anilton de Rezende Lopes – CRMV-BA 1897';
   if (!cfg.empresa) cfg.empresa = 'ArPec Consultoria';
+  if (!Array.isArray(cfg.manejo) || !cfg.manejo.length) cfg.manejo = JSON.parse(JSON.stringify(MANEJO_PADRAO));
   try { cfg.logo = await kvGet('logo') || null; } catch(e){ cfg.logo = null; }
   applyLogo();
 }
@@ -497,10 +520,10 @@ async function setLogo(input){
 async function removeLogo(){ cfg.logo = null; await kvSet('logo', null); applyLogo(); }
 function saveSettings(){
   cfg.resp = $('cfgResp').value.trim(); cfg.empresa = $('cfgEmpresa').value.trim();
-  localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup}));
+  persistCfg();
   alert('✅ Ajustes salvos');
 }
-function persistCfg(){ localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup})); }
+function persistCfg(){ localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup, manejo: cfg.manejo})); }
 
 // ===== ARMAZENAMENTO =====
 function loadEvaluations(){ try { allEvaluations = JSON.parse(localStorage.getItem(LS_EVAL)) || []; } catch(e){ allEvaluations = []; } }
@@ -515,7 +538,7 @@ function showScreen(id){ document.querySelectorAll('.screen').forEach(s => s.cla
 function showHome(){ updateHome(); showScreen('homeScreen'); }
 function showHistory(){ renderHistory(); showScreen('historyScreen'); }
 async function showSettings(){
-  $('cfgResp').value = cfg.resp || ''; $('cfgEmpresa').value = cfg.empresa || '';
+  $('cfgResp').value = cfg.resp || ''; $('cfgEmpresa').value = cfg.empresa || ''; renderManejo();
   showScreen('settingsScreen');
   if (navigator.storage && navigator.storage.estimate) {
     const e = await navigator.storage.estimate();
@@ -546,10 +569,11 @@ function resetForm(){
   $('evalDate').value = todayISO();
   document.querySelectorAll('input[name="problema"]').forEach(cb => cb.checked = false);
   document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
-  renderDraftPhotos(); updateResult();
+  $('alturas').value = ''; $('sistema').value = 'Rotacionado'; $('momento').value = 'Entrada';
+  renderDraftPhotos(); updateResult(); updAltura();
 }
 function showNewEvaluation(){
-  editingId = null; resetForm(); fillDatalists(); setupPick();
+  editingId = null; resetForm(); fillDatalists(); setupPick(); setTimeout(() => { if (/^m[oó]d/i.test($('modulo').value)) $('sistema').value = 'Rotacionado'; updAltura(); });
   // repete fazenda/módulo da última avaliação para agilizar o campo
   const last = allEvaluations[0];
   if (last) { $('fazenda').value = last.fazenda || ''; $('modulo').value = last.modulo || ''; }
@@ -585,6 +609,8 @@ async function saveEvaluation(){
   FIELDS.forEach(f => ev[f] = $(f).value.trim());
   ev.ratings = {...ratings}; ev.nota = nota;
   ev.problemas = [...document.querySelectorAll('input[name="problema"]:checked')].map(cb => cb.value);
+  const AL = alturaInfo(); ev.sistema = $('sistema').value; ev.momento = ev.sistema === 'Rotacionado' ? $('momento').value : '';
+  ev.alturas = AL.vals; ev.alturaMedia = AL.media; ev.alturaRef = AL.ref; ev.alturaDiag = AL.diag; ev.especieRef = AL.esp;
 
   try {
     for (const p of draftPhotos) await putFoto({id: p.id, evalId: ev.id, tipo: p.tipo, data: p.data});
@@ -609,7 +635,9 @@ async function editEvaluation(){
   Object.entries(ev.ratings || {}).forEach(([k,v]) => setRating(k, v));
   (ev.problemas || []).forEach(p => { const cb = [...document.querySelectorAll('input[name="problema"]')].find(c => c.value === p); if (cb) cb.checked = true; });
   draftPhotos = (await getFotosFor(ev)).map(f => ({id: f.id, tipo: f.tipo, data: f.data}));
-  renderDraftPhotos(); updateResult();
+  if (ev.sistema) $('sistema').value = ev.sistema; if (ev.momento) $('momento').value = ev.momento;
+  $('alturas').value = (ev.alturas || []).join(' ');
+  renderDraftPhotos(); updateResult(); updAltura();
   $('evalTitle').textContent = 'Editar avaliação – Identificação';
   showScreen('evaluationScreen');
 }
@@ -679,6 +707,7 @@ async function showDetail(id){
     ['Área (ha)', e.area ? num(e.area) : '-'], ['Forrageira', e.forrageira], ['Categoria', e.categoria || '-'],
     ['Lotação (UA/ha)', e.lotacao ? num(e.lotacao) : '-'],
     ...IND.map(i => [i.n, e.ratings?.[i.k] ? `${e.ratings[i.k]} – ${i.d[e.ratings[i.k]]}` : '-']),
+    ['Altura do pasto', alturaTxt(e)], ...(e.alturaDiag ? [['Situação da altura', e.alturaDiag]] : []),
     ['Problemas', (e.problemas || []).join(', ') || '-'], ['Ação', e.acao || '-'],
     ['Reavaliar', e.prazo ? `${e.prazo} dias (${addDays(e.data, e.prazo)})` : '-'],
     ['Observações', e.observacoes || '-']
@@ -731,7 +760,8 @@ async function printEvaluation(){
     </div>
     <h3>Diagnóstico e recomendação</h3>
     <table>
-      <tr><th style="width:30%">Principais problemas</th><td>${esc((e.problemas || []).join(', ') || '-')}</td></tr>
+      <tr><th style="width:30%">Altura do pasto</th><td>${esc(alturaTxt(e))}${e.alturaDiag ? `<br><b>${esc(e.alturaDiag)}</b>` : ''}${(e.alturas || []).length > 1 ? `<br><span style="font-size:8.5pt;color:#444">Medições: ${e.alturas.join('; ')} cm</span>` : ''}</td></tr>
+      <tr><th>Principais problemas</th><td>${esc((e.problemas || []).join(', ') || '-')}</td></tr>
       <tr><th>Ação recomendada</th><td>${esc(e.acao || '-')}</td></tr>
       <tr><th>Reavaliação</th><td>${e.prazo ? `${esc(e.prazo)} dias (até ${addDays(e.data, e.prazo)})` : '-'}</td></tr>
       <tr><th>Observações</th><td>${esc(e.observacoes || '-').replace(/\n/g,'<br>')}</td></tr>
@@ -771,11 +801,11 @@ function downloadFile(content, filename, type){
 }
 function exportCSV(){
   if (!allEvaluations.length) { alert('Nenhuma avaliação para exportar'); return; }
-  const H = ['Data','Fazenda','Módulo','Piquete','Área (ha)','Forrageira','Categoria','Lotação (UA/ha)', ...IND.map(i => i.n), 'Nota ArPec','Classificação','Problemas','Ação','Prazo (dias)','Nº fotos','Observações'];
+  const H = ['Data','Fazenda','Módulo','Piquete','Área (ha)','Forrageira','Categoria','Lotação (UA/ha)', ...IND.map(i => i.n), 'Nota ArPec','Classificação','Sistema','Momento','Altura média (cm)','Nº medições','Referência altura','Situação altura','Problemas','Ação','Prazo (dias)','Nº fotos','Observações'];
   const q = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
   const dec = v => (v === '' || v == null) ? '' : String(v).replace('.', ',');
   const rows = allEvaluations.map(e => [fmtDate(e.data), e.fazenda, e.modulo, e.piquete, dec(e.area), e.forrageira, e.categoria, dec(e.lotacao),
-    ...IND.map(i => e.ratings?.[i.k]), dec(e.nota), classify(e.nota), (e.problemas||[]).join('; '), e.acao, e.prazo, (e.fotoIds||[]).length, e.observacoes].map(q).join(';'));
+    ...IND.map(i => e.ratings?.[i.k]), dec(e.nota), classify(e.nota), e.sistema || '', e.momento || '', e.alturaMedia != null ? dec(r1(e.alturaMedia)) : '', (e.alturas || []).length || '', e.alturaRef || '', e.alturaDiag || '', (e.problemas||[]).join('; '), e.acao, e.prazo, (e.fotoIds||[]).length, e.observacoes].map(q).join(';'));
   downloadFile('\ufeff' + H.map(q).join(';') + '\n' + rows.join('\n'), `arpec-avaliacoes-${todayISO()}.csv`, 'text/csv;charset=utf-8');
 }
 async function exportBackup(){
@@ -1066,6 +1096,7 @@ async function importarPlanilha(input){
     saveCad();
   }
   renderFazList();
+  aplicarManejoImportado(sheetToManejo(sheets));
 }
 function baixarModelo(){
   const L = [['Fazenda','Grupo','Módulo / Setor','Piquete / Pasto','Forrageira','Área (ha)','AEE (ha)'],
@@ -1096,13 +1127,14 @@ function pickFaz(keep){
 function pickUni(){
   const f = findFaz($('pkFaz').value), u = f?.unidades.find(x => x.id === $('pkUni').value);
   $('pkArea').innerHTML = '<option value="">' + (u ? filho(u.tipo) : 'Piquete / Pasto') + '…</option>' + (u ? u.areas.map(a => `<option value="${a.id}">${esc(a.nome)} (${num(a.area)} ha)</option>`).join('') : '');
-  if (u) { $('fazenda').value = f.nome; $('modulo').value = u.nome; }
+  if (u) { $('fazenda').value = f.nome; $('modulo').value = u.nome; $('sistema').value = u.tipo === 'Módulo' ? 'Rotacionado' : 'Contínuo'; updAltura(); }
 }
 function pickArea(){
   const f = findFaz($('pkFaz').value), u = f?.unidades.find(x => x.id === $('pkUni').value), a = u?.areas.find(x => x.id === $('pkArea').value);
   if (!a) return;
   $('fazenda').value = f.nome; $('modulo').value = u.nome; $('piquete').value = a.nome; $('area').value = a.area;
   if (a.forrageira) $('forrageira').value = a.forrageira;
+  updAltura();
 }
 
 // ===== LOTAÇÃO =====
@@ -1237,6 +1269,113 @@ function printLotRes(nomeF, data, R){
     ${blocos}
     ${repFooter()}`;
   doPrint(html, `Lotacao_${nomeF}_${data}`.replace(/[^\w\-]+/g, '_'));
+}
+
+
+// ===== ALTURA DO PASTO / REFERÊNCIAS DE MANEJO =====
+const MANEJO_PADRAO = [
+  {nome:'Braquiárias', chaves:'braqui, brachi, brizant, marand, decumb, humid, ruziz, piata, xaraes, ipypora, cayman, mulato, sabia, paiaguas', cDim:20, cMan:30, cAum:35, rEnt:30, rSai:15},
+  {nome:'Mombaça', chaves:'mombac', cDim:40, cMan:50, cAum:80, rEnt:80, rSai:40}
+];
+const r1 = v => Math.round(v * 10) / 10;
+function especieDe(forr){
+  const t = norm(forr); if (!t) return null;
+  return (cfg.manejo || []).find(m => norm(m.nome) === t || String(m.chaves || '').split(',').map(norm).filter(Boolean).some(k => t.includes(k)) || t.includes(norm(m.nome))) || null;
+}
+function parseAlturas(txt){ return String(txt || '').split(/[\s;\/]+/).map(x => P(x)).filter(v => v > 0 && v < 500); }
+function alturaInfo(){
+  const vals = parseAlturas($('alturas').value), sis = $('sistema').value, mom = $('momento').value;
+  const esp = especieDe($('forrageira').value);
+  const out = {vals, media: vals.length ? vals.reduce((a,b) => a+b, 0) / vals.length : null, ref: '', diag: '', esp: esp ? esp.nome : '', nivel: ''};
+  if (!esp) { out.ref = ''; return out; }
+  if (sis === 'Contínuo') {
+    out.ref = `Contínuo ${esp.nome}: diminuir ≤${esp.cDim} · manter ${esp.cMan} · aumentar ≥${esp.cAum} cm`;
+    if (out.media != null) {
+      const h = out.media;
+      if (h <= esp.cDim) { out.diag = 'Altura baixa – diminuir lotação'; out.nivel = 'baixo'; }
+      else if (h >= esp.cAum) { out.diag = 'Altura alta – aumentar lotação'; out.nivel = 'alto'; }
+      else { out.diag = 'Altura adequada – manter lotação'; out.nivel = 'ok'; }
+    }
+  } else {
+    const alvo = mom === 'Saída' ? esp.rSai : esp.rEnt;
+    out.ref = `Rotacionado ${esp.nome}: entrada ${esp.rEnt} cm · saída ${esp.rSai} cm`;
+    if (out.media != null) {
+      const h = out.media, lo = alvo * 0.9, hi = alvo * 1.1;
+      if (mom === 'Entrada') {
+        if (h < lo) { out.diag = `Abaixo da altura de entrada (${alvo} cm) – aguardar mais descanso`; out.nivel = 'baixo'; }
+        else if (h > hi) { out.diag = `Acima da altura de entrada (${alvo} cm) – pasto passando do ponto, antecipar a entrada`; out.nivel = 'alto'; }
+        else { out.diag = `No ponto de entrada (${alvo} cm)`; out.nivel = 'ok'; }
+      } else {
+        if (h < lo) { out.diag = `Abaixo da altura de saída (${alvo} cm) – retirar os animais (risco de superpastejo)`; out.nivel = 'baixo'; }
+        else if (h > hi) { out.diag = `Acima da altura de saída (${alvo} cm) – resíduo alto, pode permanecer ou ajustar a lotação`; out.nivel = 'alto'; }
+        else { out.diag = `No ponto de saída (${alvo} cm)`; out.nivel = 'ok'; }
+      }
+    }
+  }
+  return out;
+}
+function updAltura(){
+  if (!$('alturas')) return;
+  $('momentoBox').style.visibility = $('sistema').value === 'Rotacionado' ? 'visible' : 'hidden';
+  const A = alturaInfo(), forr = $('forrageira').value.trim();
+  const cor = {baixo:'var(--danger)', alto:'#b26a00', ok:'var(--primary)'}[A.nivel] || 'inherit';
+  let h = '';
+  if (A.media != null) h += `<b style="font-size:1.05rem">Média: ${num(A.media,1)} cm</b> <span class="hint">(${A.vals.length} ${A.vals.length > 1 ? 'medições' : 'medição'}${A.vals.length > 1 ? `, de ${num(Math.min(...A.vals),0)} a ${num(Math.max(...A.vals),0)}` : ''})</span><br>`;
+  if (A.ref) h += `<span class="hint">${esc(A.ref)}</span>`;
+  else h += `<span class="hint">${forr ? `Sem referência de altura para "${esc(forr)}". Cadastre em Ajustes → Referências de altura.` : 'Informe a forrageira para ver a referência.'}</span>`;
+  if (A.diag) h += `<br><b style="color:${cor}">${A.nivel === 'ok' ? '✅' : '⚠️'} ${esc(A.diag)}</b>`;
+  $('altBox').innerHTML = h;
+}
+function alturaTxt(e){
+  if (e.alturaMedia == null) return '-';
+  return `${num(e.alturaMedia,1)} cm (${(e.alturas || []).length} med.) · ${e.sistema || ''}${e.momento ? ' – ' + e.momento.toLowerCase() : ''}${e.alturaRef ? ' · ref. ' + e.alturaRef.replace(/^(Contínuo|Rotacionado) /, '') : ''}`;
+}
+function renderManejo(){
+  const box = $('manejoList'); if (!box) return;
+  box.innerHTML = (cfg.manejo || []).map((m, i) => `<div style="border:1px solid var(--border);border-radius:6px;padding:10px;margin-bottom:8px">
+    <div class="row"><input type="text" value="${esc(m.nome)}" data-i="${i}" data-k="nome" style="flex:2;font-weight:600"><button class="btn-small" style="flex:none;background:#f1f1f1" onclick="delEspecie(${i})">🗑️</button></div>
+    <span class="hint">Palavras-chave da forrageira</span><input type="text" value="${esc(m.chaves || '')}" data-i="${i}" data-k="chaves">
+    <span class="hint" style="display:block;margin-top:6px"><b>Contínuo</b> – diminuir / manter / aumentar lotação</span>
+    <div class="row">${['cDim','cMan','cAum'].map(k => `<input type="number" inputmode="decimal" value="${m[k] ?? ''}" data-i="${i}" data-k="${k}">`).join('')}</div>
+    <span class="hint" style="display:block;margin-top:6px"><b>Rotacionado</b> – entrada / saída</span>
+    <div class="row">${['rEnt','rSai'].map(k => `<input type="number" inputmode="decimal" value="${m[k] ?? ''}" data-i="${i}" data-k="${k}">`).join('')}</div>
+  </div>`).join('');
+}
+function readManejoForm(){
+  document.querySelectorAll('#manejoList [data-k]').forEach(el => { const m = cfg.manejo[+el.dataset.i]; const k = el.dataset.k; m[k] = /^[cr]/.test(k) && k !== 'chaves' ? P(el.value) : el.value.trim(); });
+}
+function addEspecie(){ readManejoForm(); cfg.manejo.push({nome:'Nova espécie', chaves:'', cDim:'', cMan:'', cAum:'', rEnt:'', rSai:''}); renderManejo(); }
+function delEspecie(i){ readManejoForm(); if (!confirm(`Remover "${cfg.manejo[i].nome}"?`)) return; cfg.manejo.splice(i, 1); renderManejo(); }
+function saveManejo(){ readManejoForm(); cfg.manejo = cfg.manejo.filter(m => m.nome); persistCfg(); renderManejo(); alert('✅ Referências salvas'); }
+// lê a aba de manejo (alturas) de uma planilha importada
+function sheetToManejo(sheets){
+  const found = {};
+  for (const sh of sheets) {
+    const rows = sh.rows; let mode = null, cols = null;
+    for (const r of rows) {
+      const cells = Array.from(r || [], norm);
+      const iDim = cells.findIndex(c => c.startsWith('diminuir')), iEnt = cells.findIndex(c => c === 'entrada'), iEsp = cells.findIndex(c => c.startsWith('especie') || c.startsWith('forrag'));
+      if (iDim >= 0) { mode = 'c'; cols = {esp: iEsp >= 0 ? iEsp : iDim - 1, a: iDim, b: cells.findIndex(c => c.startsWith('manter')), c: cells.findIndex(c => c.startsWith('aumentar'))}; continue; }
+      if (iEnt >= 0) { mode = 'r'; cols = {esp: iEsp >= 0 ? iEsp : iEnt - 1, a: iEnt, b: cells.findIndex(c => c.startsWith('saida'))}; continue; }
+      if (!mode) continue;
+      const nome = String((r || [])[cols.esp] ?? '').trim();
+      if (!nome || /pastejo|altura/i.test(nome)) { if (nome) mode = null; continue; }
+      const k = norm(nome); const m = found[k] = found[k] || {nome};
+      if (mode === 'c') { m.cDim = P(r[cols.a]); m.cMan = P(r[cols.b]); m.cAum = P(r[cols.c]); }
+      else { m.rEnt = P(r[cols.a]); m.rSai = P(r[cols.b]); }
+    }
+  }
+  return Object.values(found).filter(m => !isNaN(m.cDim) || !isNaN(m.rEnt));
+}
+function aplicarManejoImportado(lista){
+  if (!lista.length) return;
+  if (!confirm(`A planilha tem referências de altura para: ${lista.map(m => m.nome).join(', ')}.\nAtualizar as referências do app?`)) return;
+  for (const m of lista) {
+    const ex = cfg.manejo.find(x => norm(x.nome) === norm(m.nome) || norm(x.nome).startsWith(norm(m.nome).replace(/s$/, '')));
+    const vals = Object.fromEntries(Object.entries(m).filter(([k,v]) => k !== 'nome' && !isNaN(v)));
+    if (ex) Object.assign(ex, vals); else cfg.manejo.push({nome: m.nome, chaves: norm(m.nome), ...vals});
+  }
+  persistCfg();
 }
 
 // ===== INSTALAÇÃO (PWA) =====
