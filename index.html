@@ -1,0 +1,711 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>ArPec Pastagem</title>
+<meta name="theme-color" content="#2c5f2d">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="ArPec Pasto">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{--primary:#2c5f2d;--primary-dark:#1e4620;--primary-light:#4a8f4f;--secondary:#f5a623;--danger:#d32f2f;--bg:#f9f9f9;--border:#e0e0e0;--text:#212121;--text-light:#666}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;background:var(--bg);color:var(--text);line-height:1.6;padding-bottom:24px}
+header{background:var(--primary);color:#fff;padding:14px 16px;padding-top:calc(14px + env(safe-area-inset-top));display:flex;align-items:center;gap:12px;box-shadow:0 2px 4px rgba(0,0,0,.1)}
+header img{height:40px;max-width:90px;object-fit:contain;background:#fff;border-radius:4px;padding:2px}
+header h1{font-size:1.15rem;line-height:1.2}
+header p{font-size:.8rem;opacity:.9}
+.container{max-width:500px;margin:16px auto;padding:0 12px}
+.screen{display:none}.screen.active{display:block}
+.nav-buttons{display:flex;gap:8px;margin-bottom:12px}
+button{flex:1;padding:12px 16px;border:none;border-radius:6px;font-size:.9rem;font-weight:500;cursor:pointer;transition:background .2s,transform .1s;text-align:center;font-family:inherit}
+button:active{transform:scale(.98)}
+button:disabled{opacity:.5}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-secondary{background:var(--secondary);color:#333}
+.btn-outline{background:#fff;color:var(--primary);border:1px solid var(--primary)}
+.btn-danger{background:var(--danger);color:#fff}
+.btn-small{padding:8px 12px;font-size:.82rem}
+.form-group{margin-bottom:16px}
+label{display:block;margin-bottom:6px;font-weight:500;font-size:.9rem}
+input[type=text],input[type=number],input[type=date],textarea,select{width:100%;padding:10px;border:1px solid var(--border);border-radius:4px;font-size:16px;font-family:inherit;background:#fff}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--primary);box-shadow:0 0 0 3px rgba(44,95,45,.1)}
+textarea{resize:vertical;min-height:80px}
+.check label{margin-bottom:0;font-weight:400}
+.rating-group{display:flex;gap:8px;margin-top:8px}
+.rating-btn{flex:1;padding:10px;border:2px solid var(--border);background:#fff;border-radius:4px;font-weight:600;color:var(--text-light)}
+.rating-btn.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.hint{font-size:.82rem;color:var(--text-light);font-weight:400}
+.section{background:#fff;padding:16px;margin-bottom:16px;border-radius:6px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.section-title{font-size:1rem;font-weight:600;color:var(--primary);margin-bottom:12px;padding-bottom:8px;border-bottom:2px solid var(--primary)}
+.result-box{background:linear-gradient(135deg,var(--primary),var(--primary-light));color:#fff;padding:20px;border-radius:6px;text-align:center;margin-bottom:16px}
+.result-box h2{font-size:2.5rem;margin-bottom:4px}
+.result-box p{font-size:1.05rem;opacity:.95;margin-bottom:8px}
+.classification{font-size:1rem;background:rgba(255,255,255,.2);padding:8px 12px;border-radius:4px;display:inline-block}
+.history-list{list-style:none}
+.history-item{background:#fff;padding:12px;margin-bottom:8px;border-radius:4px;border-left:4px solid var(--primary);cursor:pointer}
+.history-item-header{display:flex;justify-content:space-between;align-items:flex-start}
+.history-item-title{font-weight:600}
+.history-item-note{font-size:1.3rem;font-weight:700;color:var(--primary)}
+.history-item-date,.history-item-details{font-size:.82rem;color:var(--text-light)}
+.detail-row{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)}
+.detail-row:last-child{border-bottom:none}
+.detail-label{font-weight:500;color:var(--text-light)}
+.detail-value{font-weight:600;text-align:right;word-break:break-word}
+.photos{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-top:10px}
+.photo{position:relative;background:#eee;border-radius:4px;overflow:hidden}
+.photo img{width:100%;height:120px;object-fit:cover;display:block}
+.photo span{display:block;font-size:.75rem;padding:4px 6px;background:#fff}
+.photo button{position:absolute;top:4px;right:4px;flex:none;width:28px;height:28px;padding:0;border-radius:50%;background:rgba(0,0,0,.6);color:#fff;font-size:.9rem}
+.row{display:flex;gap:8px}
+.install-banner{display:none;background:#e8f2e8;border:1px solid var(--primary-light);padding:12px;border-radius:6px;margin-bottom:12px;font-size:.88rem}
+.logo-prev{max-height:70px;max-width:200px;display:block;margin:8px 0;border:1px solid var(--border);padding:4px;background:#fff}
+#printArea{display:none}
+
+/* ===== RELATÓRIO PDF (impressão) ===== */
+@media print{
+  @page{size:A4;margin:14mm 14mm 16mm}
+  body{background:#fff;padding:0;font-family:Arial,Helvetica,sans-serif;color:#000}
+  header,.container,.install-banner{display:none!important}
+  #printArea{display:block}
+  .rep{font-size:10pt;line-height:1.4;color:#000}
+  .rep-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1.5pt solid #000;padding-bottom:6pt;margin-bottom:10pt}
+  .rep-head img{max-height:48pt;max-width:140pt}
+  .rep-head .rt{text-align:right}
+  .rep h1{font-size:14pt;margin:0}
+  .rep .sub{font-size:9pt;color:#444}
+  .rep h3{font-size:11pt;margin:12pt 0 5pt;border-bottom:.5pt solid #888;padding-bottom:2pt}
+  .rep table{width:100%;border-collapse:collapse;font-size:9.5pt;page-break-inside:auto}
+  .rep th,.rep td{border:.5pt solid #999;padding:4pt 6pt;text-align:left;vertical-align:top}
+  .rep th{background:#e6e6e6;font-weight:bold}
+  .rep td.c,.rep th.c{text-align:center}
+  .rep tr{page-break-inside:avoid}
+  .rep .score{display:flex;gap:10pt;margin:8pt 0}
+  .rep .score div{flex:1;border:1pt solid #000;padding:6pt;text-align:center}
+  .rep .score b{display:block;font-size:16pt}
+  .rep .fotos{display:grid;grid-template-columns:1fr 1fr;gap:8pt}
+  .rep .fotos figure{margin:0;page-break-inside:avoid}
+  .rep .fotos img{width:100%;height:150pt;object-fit:cover;border:.5pt solid #999}
+  .rep .fotos figcaption{font-size:9pt;color:#333;margin-top:2pt}
+  .rep .sign{margin-top:30pt;text-align:center;font-size:9.5pt}
+  .rep .sign .ln{border-top:.5pt solid #000;width:230pt;margin:0 auto 3pt}
+  .rep .foot{margin-top:14pt;font-size:8.5pt;color:#555;border-top:.5pt solid #aaa;padding-top:4pt}
+  .pb{page-break-before:always}
+}
+</style>
+</head>
+<body>
+<header>
+  <img id="hdrLogo" alt="" style="display:none">
+  <div><h1>ArPec Condição de Pastagem</h1><p>Avaliação off-line para campo</p></div>
+</header>
+
+<div class="container">
+
+<!-- INICIAL -->
+<div id="homeScreen" class="screen active">
+  <div class="install-banner" id="installBanner">
+    <strong>Instalar como app</strong><br>Coloque o ArPec na tela inicial para abrir sem internet.
+    <div class="row" style="margin-top:8px"><button class="btn-primary btn-small" onclick="doInstall()">📲 Instalar</button></div>
+  </div>
+  <div class="nav-buttons">
+    <button class="btn-primary" onclick="showNewEvaluation()">➕ Nova Avaliação</button>
+    <button class="btn-secondary" onclick="showHistory()">📋 Histórico</button>
+  </div>
+  <div class="nav-buttons">
+    <button class="btn-outline btn-small" onclick="showCalculator()">🧮 Calc. Lotação</button>
+    <button class="btn-outline btn-small" onclick="showSettings()">⚙️ Ajustes e Backup</button>
+  </div>
+  <div class="section">
+    <div class="section-title">Informações</div>
+    <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
+    <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último backup:</strong> <span id="lastBackup">nunca</span></p>
+    <p class="hint">Versão 2.0 | Escala Técnica ArPec</p>
+  </div>
+  <div class="section">
+    <div class="section-title">Exportar</div>
+    <div class="row">
+      <button class="btn-primary btn-small" onclick="exportCSV()">📊 Planilha CSV</button>
+      <button class="btn-primary btn-small" onclick="exportBackup()">💾 Backup completo</button>
+    </div>
+  </div>
+</div>
+
+<!-- AVALIAÇÃO -->
+<div id="evaluationScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="cancelEdit()">← Voltar</button>
+  <div class="section">
+    <div class="section-title" id="evalTitle">Identificação</div>
+    <div class="form-group"><label>Data *</label><input type="date" id="evalDate"></div>
+    <div class="form-group"><label>Fazenda *</label><input type="text" id="fazenda" list="lstFaz" placeholder="ex: Fazenda São Sebastião"><datalist id="lstFaz"></datalist></div>
+    <div class="form-group"><label>Módulo / Área *</label><input type="text" id="modulo" placeholder="ex: Módulo 5"></div>
+    <div class="form-group"><label>Piquete / Pasto *</label><input type="text" id="piquete" placeholder="ex: Piquete A"></div>
+    <div class="form-group"><label>Área (ha)</label><input type="number" id="area" placeholder="0,00" step="0.01" min="0" inputmode="decimal"></div>
+    <div class="form-group"><label>Forrageira *</label><input type="text" id="forrageira" list="lstForr" placeholder="ex: Brachiaria brizantha"><datalist id="lstForr"></datalist></div>
+    <div class="form-group"><label>Categoria Animal</label><input type="text" id="categoria" placeholder="ex: Novilhas"></div>
+    <div class="form-group"><label>Lotação (UA/ha)</label>
+      <div class="row"><input type="number" id="lotacao" placeholder="0,00" step="0.01" min="0" inputmode="decimal" style="flex:2"><button class="btn-outline btn-small" style="flex:1" onclick="openCalcFromEval()">🧮 Calcular</button></div>
+    </div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Avaliação (1 a 5)</div>
+    <div id="indicators"></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Diagnóstico</div>
+    <div class="form-group"><label>Principal Problema</label><div class="check" id="problemas" style="display:flex;flex-direction:column;gap:6px"></div></div>
+    <div class="form-group"><label>Ação Recomendada</label><select id="acao"></select></div>
+    <div class="form-group"><label>Prazo para Reavaliação (dias)</label><input type="number" id="prazo" placeholder="30" min="1" inputmode="numeric"></div>
+    <div class="form-group"><label>Observações</label><textarea id="observacoes" placeholder="Notas adicionais..."></textarea></div>
+  </div>
+
+  <div class="section">
+    <div class="section-title">Fotos</div>
+    <div class="form-group" style="margin-bottom:8px"><label>Tipo da foto</label>
+      <select id="fotoTipo">
+        <option>Visão geral do piquete</option><option>Detalhe da cobertura</option>
+        <option>Detalhe da forrageira</option><option>Problema principal</option><option>Outra</option>
+      </select>
+    </div>
+    <div class="row">
+      <button class="btn-primary btn-small" onclick="pickPhoto(true)">📷 Tirar foto</button>
+      <button class="btn-outline btn-small" onclick="pickPhoto(false)">🖼️ Da galeria</button>
+    </div>
+    <input type="file" id="camInput" accept="image/*" capture="environment" style="display:none" onchange="addPhotos(this)">
+    <input type="file" id="galInput" accept="image/*" multiple style="display:none" onchange="addPhotos(this)">
+    <div class="photos" id="photoGrid"></div>
+  </div>
+
+  <div class="section">
+    <div class="result-box"><h2 id="notaResult">-</h2><p>Nota ArPec</p><div class="classification" id="classResult">-</div></div>
+    <div class="row">
+      <button class="btn-primary" onclick="saveEvaluation()">💾 Salvar</button>
+      <button class="btn-secondary" onclick="cancelEdit()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- HISTÓRICO -->
+<div id="historyScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="showHome()">← Voltar</button>
+  <div class="section">
+    <input type="text" id="filterInput" placeholder="🔍 Filtrar por fazenda, módulo ou piquete..." oninput="renderHistory()">
+    <div class="row" style="margin-top:10px"><button class="btn-outline btn-small" onclick="printSummary()">📄 PDF resumo (lista filtrada)</button></div>
+  </div>
+  <ul class="history-list" id="historyList"></ul>
+  <div id="emptyHistory" style="text-align:center;padding:20px;color:var(--text-light)">Nenhuma avaliação encontrada.</div>
+</div>
+
+<!-- CALCULADORA -->
+<div id="calculatorScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="calcBack()">← Voltar</button>
+  <div class="section">
+    <div class="section-title">Calculadora de Lotação</div>
+    <div class="form-group"><label>Número de Animais *</label><input type="number" id="numAnimais" placeholder="ex: 45" min="0" inputmode="numeric" oninput="calcularLotacao()"></div>
+    <div class="form-group"><label>Peso Médio (kg) *</label><input type="number" id="pesoMedio" placeholder="ex: 380" step="0.1" min="0" inputmode="decimal" oninput="calcularLotacao()"></div>
+    <div class="form-group"><label>Área (ha) *</label><input type="number" id="areaCalc" placeholder="ex: 15" step="0.01" min="0" inputmode="decimal" oninput="calcularLotacao()"></div>
+  </div>
+  <div class="section">
+    <div class="result-box"><h2 id="lotacaoResult">-</h2><p>Lotação (UA/ha)</p><div class="classification" id="lotacaoFormula" style="font-size:.85rem">Preencha os campos</div></div>
+    <button class="btn-primary" style="width:100%;margin-bottom:12px" id="copiarBtn" onclick="copiarLotacao()" disabled>📋 Usar na Avaliação</button>
+    <div style="background:#f0f7f0;padding:12px;border-radius:4px;font-size:.85rem;color:var(--text-light)">
+      <strong>Fórmula:</strong><br>Lotação = (Nº animais × Peso médio / 450) / Área<br><br>
+      <strong>Exemplo:</strong><br>(45 × 380 / 450) / 15 = 2,53 UA/ha
+    </div>
+  </div>
+</div>
+
+<!-- DETALHE -->
+<div id="detailScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="showHistory()">← Voltar</button>
+  <div class="section">
+    <div class="result-box"><h2 id="detailNota">-</h2><div class="classification" id="detailClass">-</div></div>
+    <div id="detailRows"></div>
+    <div class="photos" id="detailPhotos"></div>
+  </div>
+  <button class="btn-primary" style="width:100%;margin-bottom:8px" onclick="printEvaluation()">📄 Gerar relatório PDF</button>
+  <div class="row">
+    <button class="btn-outline btn-small" onclick="editEvaluation()">✏️ Editar</button>
+    <button class="btn-danger btn-small" onclick="deleteEvaluation()">🗑️ Excluir</button>
+  </div>
+</div>
+
+<!-- AJUSTES -->
+<div id="settingsScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="showHome()">← Voltar</button>
+  <div class="section">
+    <div class="section-title">Relatórios</div>
+    <div class="form-group"><label>Responsável técnico (assinatura)</label><input type="text" id="cfgResp"></div>
+    <div class="form-group"><label>Empresa</label><input type="text" id="cfgEmpresa"></div>
+    <div class="form-group"><label>Logo (aparece no app e no PDF)</label>
+      <img id="logoPrev" class="logo-prev" style="display:none" alt="Logo">
+      <div class="row">
+        <button class="btn-outline btn-small" onclick="document.getElementById('logoInput').click()">🖼️ Escolher logo</button>
+        <button class="btn-outline btn-small" onclick="removeLogo()">Remover</button>
+      </div>
+      <input type="file" id="logoInput" accept="image/*" style="display:none" onchange="setLogo(this)">
+    </div>
+    <button class="btn-primary" style="width:100%" onclick="saveSettings()">Salvar ajustes</button>
+  </div>
+  <div class="section">
+    <div class="section-title">Backup</div>
+    <p class="hint" style="margin-bottom:10px">O backup guarda avaliações, fotos, logo e ajustes num único arquivo. Faça com frequência e envie para o computador ou Drive. Para passar para outro celular, use "Restaurar".</p>
+    <div class="row">
+      <button class="btn-primary btn-small" onclick="exportBackup()">💾 Fazer backup</button>
+      <button class="btn-outline btn-small" onclick="document.getElementById('restoreInput').click()">♻️ Restaurar</button>
+    </div>
+    <input type="file" id="restoreInput" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
+    <p class="hint" style="margin-top:10px">Uso do armazenamento: <span id="storageInfo">-</span></p>
+  </div>
+  <div class="section">
+    <div class="section-title">Instalar na tela inicial</div>
+    <p class="hint"><strong>Android (Chrome):</strong> menu ⋮ → "Adicionar à tela inicial" / "Instalar app".<br>
+    <strong>iPhone (Safari):</strong> botão Compartilhar → "Adicionar à Tela de Início".</p>
+  </div>
+</div>
+
+</div>
+
+<div id="printArea"></div>
+
+<script>
+'use strict';
+// ===== CONSTANTES =====
+const IND = [
+  {k:'cobertura', n:'Cobertura do solo', d:{5:'>90%',4:'80–90%',3:'65–79%',2:'40–64%',1:'<40%'}},
+  {k:'forrageira_pct', n:'Presença da forrageira desejada', d:{5:'>90%',4:'75–90%',3:'60–74%',2:'40–59%',1:'<40%'}},
+  {k:'invasoras', n:'Plantas invasoras', d:{5:'Ausentes',4:'Baixa',3:'Moderada',2:'Alta',1:'Muito alta'}},
+  {k:'vigor', n:'Vigor da pastagem', d:{5:'Muito alto',4:'Alto',3:'Moderado',2:'Baixo',1:'Muito baixo'}},
+  {k:'solo_erosao', n:'Solo exposto / erosão', d:{5:'Protegido',4:'Pequenos pontos',3:'Moderada',2:'Elevada',1:'Muito exposto'}},
+  {k:'uniformidade', n:'Uniformidade de utilização', d:{5:'Excelente',4:'Boa',3:'Irregular',2:'Muito irregular',1:'Extremamente desuniforme'}}
+];
+const PROBLEMAS = ['Baixa cobertura','Baixa densidade','Invasoras','Superpastejo','Subpastejo','Baixo vigor','Solo exposto','Erosão','Falha de formação','Fertilidade'];
+const ACOES = ['Manter manejo','Ajustar lotação','Ajustar manejo do pastejo','Adubação/correção','Controle de invasoras','Recuperação','Reforma','Monitorar'];
+const LS_EVAL = 'arpecEvaluations', LS_CFG = 'arpecConfig';
+
+let ratings = {}, currentDetailId = null, editingId = null, allEvaluations = [];
+let draftPhotos = [];   // {id, tipo, data}
+let removedPhotoIds = [];
+let cfg = {};
+let calcFromEval = false;
+
+// ===== UTIL =====
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmtDate(s){ if(!s) return '-'; const [y,m,d] = String(s).slice(0,10).split('-'); return d ? `${d}/${m}/${y}` : s; }
+function addDays(s, n){ const [y,m,d] = s.split('-').map(Number); const dt = new Date(y, m-1, d + Number(n)); return dt.toLocaleDateString('pt-BR'); }
+function todayISO(){ const d = new Date(); return new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,10); }
+function classify(n){ n = Number(n); return n >= 4.5 ? 'Excelente' : n >= 3.5 ? 'Boa' : n >= 2.5 ? 'Regular' : n >= 1.5 ? 'Ruim' : 'Muito Ruim'; }
+function num(v, dec=2){ return (v === '' || v == null || isNaN(v)) ? '-' : Number(v).toLocaleString('pt-BR', {minimumFractionDigits:dec, maximumFractionDigits:dec}); }
+function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+
+// ===== FOTOS (IndexedDB) =====
+let dbP = null;
+function db(){
+  if (dbP) return dbP;
+  dbP = new Promise((res, rej) => {
+    const r = indexedDB.open('arpecDB', 1);
+    r.onupgradeneeded = () => { const d = r.result; if (!d.objectStoreNames.contains('fotos')) d.createObjectStore('fotos', {keyPath:'id'}); if (!d.objectStoreNames.contains('kv')) d.createObjectStore('kv'); };
+    r.onsuccess = () => res(r.result);
+    r.onerror = () => rej(r.error);
+  });
+  return dbP;
+}
+async function tx(store, mode, fn){
+  const d = await db();
+  return new Promise((res, rej) => {
+    const t = d.transaction(store, mode); const s = t.objectStore(store);
+    const out = fn(s);
+    t.oncomplete = () => res(out instanceof IDBRequest ? out.result : out);
+    t.onerror = () => rej(t.error);
+  });
+}
+const putFoto = f => tx('fotos','readwrite', s => s.put(f));
+const delFoto = id => tx('fotos','readwrite', s => s.delete(id));
+const getFoto = id => tx('fotos','readonly', s => s.get(id));
+const allFotos = () => tx('fotos','readonly', s => s.getAll());
+const kvSet = (k,v) => tx('kv','readwrite', s => s.put(v,k));
+const kvGet = k => tx('kv','readonly', s => s.get(k));
+
+async function getFotosFor(ev){ const out = []; for (const id of (ev.fotoIds || [])) { const f = await getFoto(id); if (f) out.push(f); } return out; }
+
+function compressImage(file, max=1280, q=0.72){
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight; const s = Math.min(1, max / Math.max(w, h));
+      w = Math.round(w*s); h = Math.round(h*s);
+      const c = document.createElement('canvas'); c.width = w; c.height = h;
+      c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', q));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('Imagem inválida')); };
+    img.src = url;
+  });
+}
+
+function pickPhoto(cam){ $(cam ? 'camInput' : 'galInput').click(); }
+async function addPhotos(input){
+  const tipo = $('fotoTipo').value;
+  for (const f of input.files) {
+    try { draftPhotos.push({id: uid(), tipo, data: await compressImage(f)}); }
+    catch(e){ alert('Não foi possível ler a foto.'); }
+  }
+  input.value = ''; renderDraftPhotos();
+}
+function removeDraftPhoto(id){
+  if (!confirm('Remover esta foto?')) return;
+  draftPhotos = draftPhotos.filter(p => p.id !== id); removedPhotoIds.push(id); renderDraftPhotos();
+}
+function renderDraftPhotos(){
+  $('photoGrid').innerHTML = draftPhotos.map(p => `<div class="photo"><img src="${p.data}" alt=""><span>${esc(p.tipo)}</span><button onclick="removeDraftPhoto('${p.id}')">✕</button></div>`).join('');
+}
+
+// ===== CONFIG / LOGO =====
+async function loadConfig(){
+  try { cfg = JSON.parse(localStorage.getItem(LS_CFG)) || {}; } catch(e){ cfg = {}; }
+  if (!cfg.resp) cfg.resp = 'Anilton de Rezende Lopes – CRMV-BA 1897';
+  if (!cfg.empresa) cfg.empresa = 'ArPec Consultoria';
+  try { cfg.logo = await kvGet('logo') || null; } catch(e){ cfg.logo = null; }
+  applyLogo();
+}
+function applyLogo(){
+  const h = $('hdrLogo'), p = $('logoPrev');
+  if (cfg.logo) { h.src = p.src = cfg.logo; h.style.display = p.style.display = 'block'; }
+  else { h.style.display = p.style.display = 'none'; }
+}
+async function setLogo(input){
+  const f = input.files[0]; if (!f) return;
+  cfg.logo = await compressImage(f, 600, 0.9); await kvSet('logo', cfg.logo); applyLogo(); input.value = '';
+}
+async function removeLogo(){ cfg.logo = null; await kvSet('logo', null); applyLogo(); }
+function saveSettings(){
+  cfg.resp = $('cfgResp').value.trim(); cfg.empresa = $('cfgEmpresa').value.trim();
+  localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup}));
+  alert('✅ Ajustes salvos');
+}
+function persistCfg(){ localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup})); }
+
+// ===== ARMAZENAMENTO =====
+function loadEvaluations(){ try { allEvaluations = JSON.parse(localStorage.getItem(LS_EVAL)) || []; } catch(e){ allEvaluations = []; } }
+function saveToStorage(){ localStorage.setItem(LS_EVAL, JSON.stringify(allEvaluations)); updateHome(); }
+function updateHome(){
+  $('totalCount').textContent = allEvaluations.length;
+  $('lastBackup').textContent = cfg.lastBackup ? new Date(cfg.lastBackup).toLocaleDateString('pt-BR') : 'nunca';
+}
+
+// ===== NAVEGAÇÃO =====
+function showScreen(id){ document.querySelectorAll('.screen').forEach(s => s.classList.remove('active')); $(id).classList.add('active'); window.scrollTo(0,0); }
+function showHome(){ updateHome(); showScreen('homeScreen'); }
+function showHistory(){ renderHistory(); showScreen('historyScreen'); }
+async function showSettings(){
+  $('cfgResp').value = cfg.resp || ''; $('cfgEmpresa').value = cfg.empresa || '';
+  showScreen('settingsScreen');
+  if (navigator.storage && navigator.storage.estimate) {
+    const e = await navigator.storage.estimate();
+    $('storageInfo').textContent = `${(e.usage/1048576).toFixed(1)} MB de ${(e.quota/1048576).toFixed(0)} MB`;
+  }
+}
+
+// ===== FORMULÁRIO =====
+function buildForm(){
+  $('indicators').innerHTML = IND.map((ind, i) => `
+    <div class="form-group" style="margin-bottom:20px">
+      <label><strong>${i+1}. ${ind.n}</strong><br><span class="hint">${[5,4,3,2,1].map(v => `${v}=${esc(ind.d[v])}`).join(' | ')}</span></label>
+      <div class="rating-group">${[1,2,3,4,5].map(v => `<button class="rating-btn" data-k="${ind.k}" data-v="${v}" onclick="setRating('${ind.k}',${v})">${v}</button>`).join('')}</div>
+    </div>`).join('');
+  $('problemas').innerHTML = PROBLEMAS.map(p => `<label><input type="checkbox" name="problema" value="${esc(p)}"> ${esc(p)}</label>`).join('');
+  $('acao').innerHTML = '<option value="">-- Selecione --</option>' + ACOES.map(a => `<option>${esc(a)}</option>`).join('');
+}
+function fillDatalists(){
+  const uniq = k => [...new Set(allEvaluations.map(e => e[k]).filter(Boolean))];
+  $('lstFaz').innerHTML = uniq('fazenda').map(v => `<option value="${esc(v)}">`).join('');
+  $('lstForr').innerHTML = uniq('forrageira').map(v => `<option value="${esc(v)}">`).join('');
+}
+const FIELDS = ['fazenda','modulo','piquete','area','forrageira','categoria','lotacao','acao','prazo','observacoes'];
+
+function resetForm(){
+  ratings = {}; draftPhotos = []; removedPhotoIds = [];
+  FIELDS.forEach(f => $(f).value = '');
+  $('evalDate').value = todayISO();
+  document.querySelectorAll('input[name="problema"]').forEach(cb => cb.checked = false);
+  document.querySelectorAll('.rating-btn').forEach(b => b.classList.remove('active'));
+  renderDraftPhotos(); updateResult();
+}
+function showNewEvaluation(){
+  editingId = null; resetForm(); fillDatalists();
+  // repete fazenda/módulo da última avaliação para agilizar o campo
+  const last = allEvaluations[0];
+  if (last) { $('fazenda').value = last.fazenda || ''; $('modulo').value = last.modulo || ''; }
+  $('evalTitle').textContent = 'Nova avaliação – Identificação';
+  showScreen('evaluationScreen');
+}
+function cancelEdit(){
+  if (editingId) { const id = editingId; editingId = null; showDetail(id); }
+  else showHome();
+}
+function setRating(k, v){
+  ratings[k] = v;
+  document.querySelectorAll(`.rating-btn[data-k="${k}"]`).forEach(b => b.classList.toggle('active', Number(b.dataset.v) === v));
+  updateResult();
+}
+function calcNota(r){ const vals = IND.map(i => r[i.k]).filter(v => v); return vals.length === 6 ? (vals.reduce((a,b) => a+b, 0) / 6).toFixed(2) : null; }
+function updateResult(){
+  const n = calcNota(ratings);
+  $('notaResult').textContent = n ? n.replace('.', ',') : '-';
+  $('classResult').textContent = n ? classify(n) : `${Object.keys(ratings).length}/6 indicadores`;
+}
+
+async function saveEvaluation(){
+  for (const f of ['evalDate','fazenda','modulo','piquete','forrageira']) {
+    if (!$(f).value.trim()) { alert('Preencha os campos obrigatórios (*)'); $(f).focus(); return; }
+  }
+  const nota = calcNota(ratings);
+  if (!nota) { alert('Avalie todos os 6 indicadores'); return; }
+
+  const base = editingId ? allEvaluations.find(e => e.id === editingId) : null;
+  const ev = Object.assign({}, base || {id: Date.now(), timestamp: new Date().toISOString()});
+  ev.data = $('evalDate').value;
+  FIELDS.forEach(f => ev[f] = $(f).value.trim());
+  ev.ratings = {...ratings}; ev.nota = nota;
+  ev.problemas = [...document.querySelectorAll('input[name="problema"]:checked')].map(cb => cb.value);
+
+  try {
+    for (const p of draftPhotos) await putFoto({id: p.id, evalId: ev.id, tipo: p.tipo, data: p.data});
+    for (const id of removedPhotoIds) await delFoto(id);
+  } catch(e) { alert('⚠️ Não foi possível salvar as fotos (memória cheia?). Faça backup e libere espaço.'); return; }
+  ev.fotoIds = draftPhotos.map(p => p.id);
+
+  if (base) { allEvaluations[allEvaluations.findIndex(e => e.id === base.id)] = ev; }
+  else allEvaluations.unshift(ev);
+  allEvaluations.sort((a,b) => (b.data || '').localeCompare(a.data || '') || b.id - a.id);
+  saveToStorage();
+  const wasEdit = !!editingId; editingId = null;
+  alert(wasEdit ? '✅ Avaliação atualizada!' : '✅ Avaliação salva!');
+  wasEdit ? showDetail(ev.id) : showHome();
+}
+
+async function editEvaluation(){
+  const ev = allEvaluations.find(e => e.id === currentDetailId); if (!ev) return;
+  resetForm(); fillDatalists(); editingId = ev.id;
+  $('evalDate').value = ev.data || todayISO();
+  FIELDS.forEach(f => $(f).value = ev[f] ?? '');
+  Object.entries(ev.ratings || {}).forEach(([k,v]) => setRating(k, v));
+  (ev.problemas || []).forEach(p => { const cb = [...document.querySelectorAll('input[name="problema"]')].find(c => c.value === p); if (cb) cb.checked = true; });
+  draftPhotos = (await getFotosFor(ev)).map(f => ({id: f.id, tipo: f.tipo, data: f.data}));
+  renderDraftPhotos(); updateResult();
+  $('evalTitle').textContent = 'Editar avaliação – Identificação';
+  showScreen('evaluationScreen');
+}
+
+async function deleteEvaluation(){
+  if (!confirm('Excluir esta avaliação e suas fotos?')) return;
+  const ev = allEvaluations.find(e => e.id === currentDetailId);
+  if (ev) for (const id of (ev.fotoIds || [])) await delFoto(id);
+  allEvaluations = allEvaluations.filter(e => e.id !== currentDetailId);
+  saveToStorage(); showHistory();
+}
+
+// ===== CALCULADORA =====
+function showCalculator(){
+  calcFromEval = false;
+  ['numAnimais','pesoMedio','areaCalc'].forEach(f => $(f).value = '');
+  calcularLotacao(); showScreen('calculatorScreen');
+}
+function openCalcFromEval(){
+  calcFromEval = true;
+  ['numAnimais','pesoMedio'].forEach(f => $(f).value = '');
+  $('areaCalc').value = $('area').value;
+  calcularLotacao(); showScreen('calculatorScreen');
+}
+function calcBack(){ calcFromEval ? showScreen('evaluationScreen') : showHome(); }
+function calcularLotacao(){
+  const n = parseFloat($('numAnimais').value) || 0, p = parseFloat($('pesoMedio').value) || 0, a = parseFloat($('areaCalc').value) || 0;
+  if (n <= 0 || p <= 0 || a <= 0) { $('lotacaoResult').textContent = '-'; $('lotacaoFormula').textContent = 'Preencha todos os campos'; $('copiarBtn').disabled = true; return; }
+  const lot = (n * p / 450) / a;
+  $('lotacaoResult').textContent = num(lot);
+  $('lotacaoResult').dataset.v = lot.toFixed(2);
+  $('lotacaoFormula').textContent = `${n} anim. × ${p} kg ÷ 450 ÷ ${a} ha`;
+  $('copiarBtn').disabled = false;
+}
+function copiarLotacao(){
+  const v = $('lotacaoResult').dataset.v; if (!v) return;
+  if (!calcFromEval) { showNewEvaluation(); }
+  $('lotacao').value = v;
+  if (!$('area').value) $('area').value = $('areaCalc').value;
+  showScreen('evaluationScreen');
+}
+
+// ===== HISTÓRICO / DETALHE =====
+function filtered(){
+  const f = ($('filterInput').value || '').toLowerCase().trim();
+  return allEvaluations.filter(e => !f || `${e.fazenda} ${e.modulo} ${e.piquete} ${e.forrageira}`.toLowerCase().includes(f));
+}
+function renderHistory(){
+  const list = filtered();
+  $('emptyHistory').style.display = list.length ? 'none' : 'block';
+  $('historyList').innerHTML = list.map(e => `
+    <li class="history-item" onclick="showDetail(${e.id})">
+      <div class="history-item-header">
+        <div><div class="history-item-title">${esc(e.fazenda)} – ${esc(e.piquete)}</div><div class="history-item-date">${fmtDate(e.data)} · ${classify(e.nota)}${(e.fotoIds||[]).length ? ' · 📷 ' + e.fotoIds.length : ''}</div></div>
+        <div class="history-item-note">${String(e.nota).replace('.', ',')}</div>
+      </div>
+      <div class="history-item-details">${esc(e.forrageira)} | ${esc(e.modulo)}</div>
+    </li>`).join('');
+}
+async function showDetail(id){
+  currentDetailId = id;
+  const e = allEvaluations.find(x => x.id === id); if (!e) return showHistory();
+  $('detailNota').textContent = String(e.nota).replace('.', ',');
+  $('detailClass').textContent = classify(e.nota);
+  const rows = [
+    ['Data', fmtDate(e.data)], ['Fazenda', e.fazenda], ['Módulo', e.modulo], ['Piquete', e.piquete],
+    ['Área (ha)', e.area ? num(e.area) : '-'], ['Forrageira', e.forrageira], ['Categoria', e.categoria || '-'],
+    ['Lotação (UA/ha)', e.lotacao ? num(e.lotacao) : '-'],
+    ...IND.map(i => [i.n, e.ratings?.[i.k] ? `${e.ratings[i.k]} – ${i.d[e.ratings[i.k]]}` : '-']),
+    ['Problemas', (e.problemas || []).join(', ') || '-'], ['Ação', e.acao || '-'],
+    ['Reavaliar', e.prazo ? `${e.prazo} dias (${addDays(e.data, e.prazo)})` : '-'],
+    ['Observações', e.observacoes || '-']
+  ];
+  if (e.fotos && e.fotos.length && !(e.fotoIds||[]).length) rows.push(['Fotos (registro antigo)', e.fotos.join(', ')]);
+  $('detailRows').innerHTML = rows.map(([l,v]) => `<div class="detail-row"><span class="detail-label">${esc(l)}</span><span class="detail-value">${esc(v)}</span></div>`).join('');
+  showScreen('detailScreen');
+  const fotos = await getFotosFor(e);
+  $('detailPhotos').innerHTML = fotos.map(f => `<div class="photo"><img src="${f.data}" alt=""><span>${esc(f.tipo)}</span></div>`).join('');
+}
+
+// ===== RELATÓRIOS PDF =====
+function repHeader(titulo, sub){
+  return `<div class="rep-head">
+    <div>${cfg.logo ? `<img src="${cfg.logo}" alt="">` : `<strong style="font-size:13pt">${esc(cfg.empresa)}</strong>`}</div>
+    <div class="rt"><h1>${esc(titulo)}</h1><div class="sub">${esc(sub)}</div></div></div>`;
+}
+function repFooter(){
+  return `<div class="sign"><div class="ln"></div>${esc(cfg.resp)}<br>${esc(cfg.empresa)}</div>
+  <div class="foot">Escala Técnica ArPec de Condição de Pastagem · Emitido em ${new Date().toLocaleDateString('pt-BR')}</div>`;
+}
+function doPrint(html, nome){
+  $('printArea').innerHTML = `<div class="rep">${html}</div>`;
+  const oldTitle = document.title; document.title = nome;
+  const imgs = [...$('printArea').querySelectorAll('img')];
+  Promise.all(imgs.map(i => i.complete ? 0 : new Promise(r => { i.onload = i.onerror = r; }))).then(() => {
+    setTimeout(() => { window.print(); setTimeout(() => { document.title = oldTitle; }, 1000); }, 150);
+  });
+}
+async function printEvaluation(){
+  const e = allEvaluations.find(x => x.id === currentDetailId); if (!e) return;
+  const fotos = await getFotosFor(e);
+  const html = `
+    ${repHeader('Relatório de Condição de Pastagem', `${e.fazenda} · ${fmtDate(e.data)}`)}
+    <h3>Identificação</h3>
+    <table>
+      <tr><th>Fazenda</th><td>${esc(e.fazenda)}</td><th>Data</th><td>${fmtDate(e.data)}</td></tr>
+      <tr><th>Módulo / Área</th><td>${esc(e.modulo)}</td><th>Piquete</th><td>${esc(e.piquete)}</td></tr>
+      <tr><th>Forrageira</th><td>${esc(e.forrageira)}</td><th>Área (ha)</th><td>${e.area ? num(e.area) : '-'}</td></tr>
+      <tr><th>Categoria animal</th><td>${esc(e.categoria || '-')}</td><th>Lotação (UA/ha)</th><td>${e.lotacao ? num(e.lotacao) : '-'}</td></tr>
+    </table>
+    <h3>Avaliação dos indicadores</h3>
+    <table>
+      <tr><th style="width:6%" class="c">#</th><th>Indicador</th><th class="c" style="width:10%">Nota</th><th>Condição observada</th></tr>
+      ${IND.map((i,n) => `<tr><td class="c">${n+1}</td><td>${i.n}</td><td class="c"><b>${e.ratings?.[i.k] ?? '-'}</b></td><td>${esc(i.d[e.ratings?.[i.k]] || '-')}</td></tr>`).join('')}
+    </table>
+    <div class="score">
+      <div>Nota ArPec<b>${String(e.nota).replace('.', ',')}</b></div>
+      <div>Classificação<b>${classify(e.nota)}</b></div>
+    </div>
+    <h3>Diagnóstico e recomendação</h3>
+    <table>
+      <tr><th style="width:30%">Principais problemas</th><td>${esc((e.problemas || []).join(', ') || '-')}</td></tr>
+      <tr><th>Ação recomendada</th><td>${esc(e.acao || '-')}</td></tr>
+      <tr><th>Reavaliação</th><td>${e.prazo ? `${esc(e.prazo)} dias (até ${addDays(e.data, e.prazo)})` : '-'}</td></tr>
+      <tr><th>Observações</th><td>${esc(e.observacoes || '-').replace(/\n/g,'<br>')}</td></tr>
+    </table>
+    ${fotos.length ? `<h3>Registro fotográfico</h3><div class="fotos">${fotos.map(f => `<figure><img src="${f.data}" alt=""><figcaption>${esc(f.tipo)}</figcaption></figure>`).join('')}</div>` : ''}
+    ${repFooter()}`;
+  doPrint(html, `Relatorio_${e.fazenda}_${e.piquete}_${e.data}`.replace(/[^\w\-]+/g,'_'));
+}
+function printSummary(){
+  const list = filtered(); if (!list.length) { alert('Nenhuma avaliação na lista.'); return; }
+  const fazendas = [...new Set(list.map(e => e.fazenda))].join(', ');
+  const media = (list.reduce((a,e) => a + Number(e.nota), 0) / list.length);
+  const cont = {}; list.forEach(e => { const c = classify(e.nota); cont[c] = (cont[c]||0) + 1; });
+  const html = `
+    ${repHeader('Resumo de Condição de Pastagens', fazendas)}
+    <div class="score">
+      <div>Piquetes avaliados<b>${list.length}</b></div>
+      <div>Nota média<b>${num(media)}</b></div>
+      <div>Classificação média<b>${classify(media)}</b></div>
+    </div>
+    <p style="font-size:9.5pt;margin-bottom:6pt">${['Excelente','Boa','Regular','Ruim','Muito Ruim'].map(c => `${c}: ${cont[c]||0}`).join(' · ')}</p>
+    <table>
+      <tr><th>Data</th><th>Módulo</th><th>Piquete</th><th>Forrageira</th><th class="c">UA/ha</th>${IND.map((i,n) => `<th class="c" title="${i.n}">${n+1}</th>`).join('')}<th class="c">Nota</th><th>Classif.</th><th>Ação</th></tr>
+      ${list.map(e => `<tr><td>${fmtDate(e.data)}</td><td>${esc(e.modulo)}</td><td>${esc(e.piquete)}</td><td>${esc(e.forrageira)}</td><td class="c">${e.lotacao ? num(e.lotacao) : '-'}</td>${IND.map(i => `<td class="c">${e.ratings?.[i.k] ?? '-'}</td>`).join('')}<td class="c"><b>${String(e.nota).replace('.', ',')}</b></td><td>${classify(e.nota)}</td><td>${esc(e.acao || '-')}</td></tr>`).join('')}
+    </table>
+    <p style="font-size:8.5pt;margin-top:4pt;color:#444">Indicadores: ${IND.map((i,n) => `${n+1} = ${i.n}`).join('; ')}.</p>
+    ${repFooter()}`;
+  doPrint(html, `Resumo_Pastagens_${todayISO()}`);
+}
+
+// ===== EXPORTAR / BACKUP =====
+function downloadFile(content, filename, type){
+  const blob = content instanceof Blob ? content : new Blob([content], {type});
+  const url = URL.createObjectURL(blob); const a = document.createElement('a');
+  a.href = url; a.download = filename; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
+}
+function exportCSV(){
+  if (!allEvaluations.length) { alert('Nenhuma avaliação para exportar'); return; }
+  const H = ['Data','Fazenda','Módulo','Piquete','Área (ha)','Forrageira','Categoria','Lotação (UA/ha)', ...IND.map(i => i.n), 'Nota ArPec','Classificação','Problemas','Ação','Prazo (dias)','Nº fotos','Observações'];
+  const q = v => `"${String(v ?? '').replace(/"/g,'""')}"`;
+  const dec = v => (v === '' || v == null) ? '' : String(v).replace('.', ',');
+  const rows = allEvaluations.map(e => [fmtDate(e.data), e.fazenda, e.modulo, e.piquete, dec(e.area), e.forrageira, e.categoria, dec(e.lotacao),
+    ...IND.map(i => e.ratings?.[i.k]), dec(e.nota), classify(e.nota), (e.problemas||[]).join('; '), e.acao, e.prazo, (e.fotoIds||[]).length, e.observacoes].map(q).join(';'));
+  downloadFile('\ufeff' + H.map(q).join(';') + '\n' + rows.join('\n'), `arpec-avaliacoes-${todayISO()}.csv`, 'text/csv;charset=utf-8');
+}
+async function exportBackup(){
+  const fotos = await allFotos();
+  const data = {app:'arpec-pastagem', versao:2, criado: new Date().toISOString(), config:{resp:cfg.resp, empresa:cfg.empresa, logo:cfg.logo}, avaliacoes: allEvaluations, fotos};
+  downloadFile(JSON.stringify(data), `arpec-backup-${todayISO()}.json`, 'application/json');
+  cfg.lastBackup = new Date().toISOString(); persistCfg(); updateHome();
+  alert(`💾 Backup gerado: ${allEvaluations.length} avaliações, ${fotos.length} fotos.\nEnvie o arquivo para o computador ou Drive.`);
+}
+async function importBackup(input){
+  const f = input.files[0]; input.value = ''; if (!f) return;
+  let d;
+  try { d = JSON.parse(await f.text()); } catch(e){ alert('Arquivo inválido.'); return; }
+  const avs = Array.isArray(d) ? d : d.avaliacoes;   // aceita também o JSON exportado pela versão 1
+  if (!Array.isArray(avs)) { alert('Arquivo não reconhecido como backup ArPec.'); return; }
+  if (!confirm(`Restaurar ${avs.length} avaliações${d.fotos ? ` e ${d.fotos.length} fotos` : ''}?\nAs que já existem neste aparelho serão mantidas.`)) return;
+  const ids = new Set(allEvaluations.map(e => e.id)); let novas = 0;
+  avs.forEach(e => { if (!ids.has(e.id)) { allEvaluations.push(e); novas++; } });
+  for (const ft of (d.fotos || [])) await putFoto(ft);
+  if (d.config) { if (d.config.logo && !cfg.logo) { cfg.logo = d.config.logo; await kvSet('logo', cfg.logo); applyLogo(); } }
+  allEvaluations.sort((a,b) => (b.data || '').localeCompare(a.data || '') || b.id - a.id);
+  saveToStorage();
+  alert(`✅ ${novas} avaliações novas restauradas.`);
+}
+
+// ===== INSTALAÇÃO (PWA) =====
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('installBanner').style.display = 'block'; });
+window.addEventListener('appinstalled', () => { $('installBanner').style.display = 'none'; });
+async function doInstall(){ if (!deferredPrompt) return; deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt = null; $('installBanner').style.display = 'none'; }
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
+  window.addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
+if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+// ===== INICIAR =====
+(async function init(){
+  buildForm(); loadEvaluations(); await loadConfig(); updateHome();
+})();
+</script>
+</body>
+</html>
