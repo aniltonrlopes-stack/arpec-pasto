@@ -66,12 +66,37 @@ textarea{resize:vertical;min-height:80px}
 .install-banner{display:none;background:#e8f2e8;border:1px solid var(--primary-light);padding:12px;border-radius:6px;margin-bottom:12px;font-size:.88rem}
 .logo-prev{max-height:70px;max-width:200px;display:block;margin:8px 0;border:1px solid var(--border);padding:4px;background:#fff}
 #printArea{display:none}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
+.modal.open{display:flex}
+.modal-box{background:#fff;width:100%;max-width:500px;border-radius:12px 12px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:90vh;overflow:auto}
+.unit{background:#fff;border-radius:6px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08);overflow:hidden}
+.unit>summary{list-style:none;padding:12px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;gap:8px;border-left:4px solid var(--primary)}
+.unit>summary::-webkit-details-marker{display:none}
+.unit .tag{font-size:.72rem;background:#e8f2e8;color:var(--primary-dark);padding:1px 6px;border-radius:3px;margin-right:4px}
+.unit .tag.setor{background:#f3ead8;color:#6b4a12}
+.unit-body{padding:0 14px 12px}
+.arow{display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);font-size:.88rem}
+.arow small{display:block;color:var(--text-light);font-size:.78rem}
+.arow .acts{display:flex;gap:4px;flex:none}
+.arow .acts button{flex:none;padding:4px 8px;font-size:.8rem;background:#f1f1f1}
+.lot-row{display:grid;grid-template-columns:1fr 64px 76px;gap:6px;align-items:center;padding:7px 0;border-bottom:1px solid var(--border)}
+.lot-row input{padding:8px 6px;font-size:16px}
+.lot-name{font-size:.86rem;line-height:1.25}
+.lot-name small{display:block;color:var(--text-light);font-size:.76rem}
+.lot-head{display:grid;grid-template-columns:1fr 64px 76px;gap:6px;font-size:.72rem;color:var(--text-light);padding-bottom:4px}
+.lot-inst{grid-column:1/-1;font-size:.8rem;color:var(--primary);font-weight:600;margin-top:-2px}
+.unit-foot{background:#f0f7f0;padding:8px 10px;border-radius:4px;margin-top:8px;font-size:.85rem}
+.kpi{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.kpi div{background:#f5f5f5;border-radius:4px;padding:8px;font-size:.8rem;color:var(--text-light)}
+.kpi b{display:block;font-size:1.1rem;color:var(--text)}
+.kpi .big{grid-column:1/-1;background:var(--primary);color:#fff}
+.kpi .big b{color:#fff;font-size:1.6rem}
 
 /* ===== RELATÓRIO PDF (impressão) ===== */
 @media print{
   @page{size:A4;margin:14mm 14mm 16mm}
   body{background:#fff;padding:0;font-family:Arial,Helvetica,sans-serif;color:#000}
-  header,.container,.install-banner{display:none!important}
+  header,.container,.install-banner,.modal{display:none!important}
   #printArea{display:block}
   .rep{font-size:10pt;line-height:1.4;color:#000}
   .rep-head{display:flex;justify-content:space-between;align-items:center;border-bottom:1.5pt solid #000;padding-bottom:6pt;margin-bottom:10pt}
@@ -118,14 +143,18 @@ textarea{resize:vertical;min-height:80px}
     <button class="btn-secondary" onclick="showHistory()">📋 Histórico</button>
   </div>
   <div class="nav-buttons">
-    <button class="btn-outline btn-small" onclick="showCalculator()">🧮 Calc. Lotação</button>
+    <button class="btn-primary btn-small" onclick="showLotacao()">🐂 Lotação da Fazenda</button>
+    <button class="btn-primary btn-small" onclick="showCadastro()">🗺️ Cadastro de Áreas</button>
+  </div>
+  <div class="nav-buttons">
+    <button class="btn-outline btn-small" onclick="showCalculator()">🧮 Calc. Rápida</button>
     <button class="btn-outline btn-small" onclick="showSettings()">⚙️ Ajustes e Backup</button>
   </div>
   <div class="section">
     <div class="section-title">Informações</div>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último backup:</strong> <span id="lastBackup">nunca</span></p>
-    <p class="hint">Versão 2.0 | Escala Técnica ArPec</p>
+    <p class="hint">Versão 3.0 | Escala Técnica ArPec</p>
   </div>
   <div class="section">
     <div class="section-title">Exportar</div>
@@ -141,9 +170,16 @@ textarea{resize:vertical;min-height:80px}
   <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="cancelEdit()">← Voltar</button>
   <div class="section">
     <div class="section-title" id="evalTitle">Identificação</div>
+    <div id="cadPick" class="form-group" style="display:none;background:#f0f7f0;padding:10px;border-radius:6px">
+      <label>📍 Escolher do cadastro</label>
+      <select id="pkFaz" onchange="pickFaz()"></select>
+      <select id="pkUni" onchange="pickUni()" style="margin-top:6px"></select>
+      <select id="pkArea" onchange="pickArea()" style="margin-top:6px"></select>
+      <p class="hint" style="margin-top:4px">Preenche fazenda, módulo/setor, piquete/pasto, área e forrageira.</p>
+    </div>
     <div class="form-group"><label>Data *</label><input type="date" id="evalDate"></div>
     <div class="form-group"><label>Fazenda *</label><input type="text" id="fazenda" list="lstFaz" placeholder="ex: Fazenda São Sebastião"><datalist id="lstFaz"></datalist></div>
-    <div class="form-group"><label>Módulo / Área *</label><input type="text" id="modulo" placeholder="ex: Módulo 5"></div>
+    <div class="form-group"><label>Módulo / Setor *</label><input type="text" id="modulo" placeholder="ex: Módulo 5 ou Setor 2"></div>
     <div class="form-group"><label>Piquete / Pasto *</label><input type="text" id="piquete" placeholder="ex: Piquete A"></div>
     <div class="form-group"><label>Área (ha)</label><input type="number" id="area" placeholder="0,00" step="0.01" min="0" inputmode="decimal"></div>
     <div class="form-group"><label>Forrageira *</label><input type="text" id="forrageira" list="lstForr" placeholder="ex: Brachiaria brizantha"><datalist id="lstForr"></datalist></div>
@@ -271,6 +307,78 @@ textarea{resize:vertical;min-height:80px}
   </div>
 </div>
 
+
+<!-- CADASTRO -->
+<div id="cadScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="showHome()">← Voltar</button>
+  <div class="section">
+    <div class="section-title">Cadastro de Áreas</div>
+    <p class="hint" style="margin-bottom:10px">Fazenda → <b>Módulos</b> (com piquetes) e <b>Setores</b> (com pastos).</p>
+    <div class="row">
+      <button class="btn-primary btn-small" onclick="addFazenda()">➕ Fazenda</button>
+      <button class="btn-outline btn-small" onclick="document.getElementById('impInput').click()">📥 Importar planilha</button>
+    </div>
+    <button class="btn-outline btn-small" style="width:100%;margin-top:8px" onclick="baixarModelo()">📄 Baixar planilha modelo</button>
+    <input type="file" id="impInput" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" style="display:none" onchange="importarPlanilha(this)">
+  </div>
+  <ul class="history-list" id="fazList"></ul>
+</div>
+
+<!-- FAZENDA -->
+<div id="fazScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="showCadastro()">← Voltar</button>
+  <div class="section">
+    <div class="section-title" id="fazTitle">Fazenda</div>
+    <div id="fazResumo" class="hint"></div>
+    <div class="row" style="margin-top:10px">
+      <button class="btn-primary btn-small" onclick="addUnidade('Módulo')">➕ Módulo</button>
+      <button class="btn-primary btn-small" onclick="addUnidade('Setor')">➕ Setor</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <button class="btn-outline btn-small" onclick="renameFazenda()">✏️ Renomear</button>
+      <button class="btn-danger btn-small" onclick="delFazenda()">🗑️ Excluir fazenda</button>
+    </div>
+  </div>
+  <div id="unidList"></div>
+</div>
+
+<!-- LOTAÇÃO -->
+<div id="lotScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="showHome()">← Voltar</button>
+  <div class="section">
+    <div class="section-title">Lotação da Fazenda</div>
+    <div class="form-group"><label>Fazenda *</label><select id="lotFaz" onchange="loadLotForm()"></select></div>
+    <div class="form-group"><label>Data *</label><input type="date" id="lotData"></div>
+    <div class="form-group" style="background:#fff8e6;padding:10px;border-radius:6px;border:1px solid #f0d9a0">
+      <label>Quantos hectares estão fora de uso?</label>
+      <div class="row">
+        <div style="flex:1"><span class="hint">Em reforma (ha) *</span><input type="number" id="lotReforma" step="0.01" min="0" inputmode="decimal" placeholder="0" oninput="calcLot()"></div>
+        <div style="flex:1"><span class="hint">Alagados (ha) *</span><input type="number" id="lotAlagado" step="0.01" min="0" inputmode="decimal" placeholder="0" oninput="calcLot()"></div>
+      </div>
+      <p class="hint" style="margin-top:4px">São descontados da área total para a lotação da fazenda. Use 0 se não houver.</p>
+    </div>
+    <p class="hint">Informe nº de animais e peso médio (kg) só nos piquetes/pastos ocupados. UA = peso ÷ 450.</p>
+  </div>
+  <div id="lotUnidades"></div>
+  <div class="section" id="lotResumo"></div>
+  <div class="row" style="margin-bottom:16px">
+    <button class="btn-primary" onclick="saveLot()">💾 Salvar</button>
+    <button class="btn-outline" onclick="printLotAtual()">📄 PDF</button>
+  </div>
+  <div class="section">
+    <div class="section-title">Lotações salvas</div>
+    <ul class="history-list" id="lotHist"></ul>
+  </div>
+</div>
+
+</div>
+
+<div id="modal" class="modal" onclick="if(event.target===this)closeModal()">
+  <div class="modal-box">
+    <div class="section-title" id="mTitle"></div>
+    <div id="mBody"></div>
+    <div class="row"><button class="btn-primary" id="mOk">Salvar</button><button class="btn-secondary" onclick="closeModal()">Cancelar</button></div>
+  </div>
 </div>
 
 <div id="printArea"></div>
@@ -288,7 +396,8 @@ const IND = [
 ];
 const PROBLEMAS = ['Baixa cobertura','Baixa densidade','Invasoras','Superpastejo','Subpastejo','Baixo vigor','Solo exposto','Erosão','Falha de formação','Fertilidade'];
 const ACOES = ['Manter manejo','Ajustar lotação','Ajustar manejo do pastejo','Adubação/correção','Controle de invasoras','Recuperação','Reforma','Monitorar'];
-const LS_EVAL = 'arpecEvaluations', LS_CFG = 'arpecConfig';
+const LS_EVAL = 'arpecEvaluations', LS_CFG = 'arpecConfig', LS_CAD = 'arpecCadastro', LS_LOT = 'arpecLotacoes';
+let CAD = {fazendas: []}, LOTS = [];
 
 let ratings = {}, currentDetailId = null, editingId = null, allEvaluations = [];
 let draftPhotos = [];   // {id, tipo, data}
@@ -440,7 +549,7 @@ function resetForm(){
   renderDraftPhotos(); updateResult();
 }
 function showNewEvaluation(){
-  editingId = null; resetForm(); fillDatalists();
+  editingId = null; resetForm(); fillDatalists(); setupPick();
   // repete fazenda/módulo da última avaliação para agilizar o campo
   const last = allEvaluations[0];
   if (last) { $('fazenda').value = last.fazenda || ''; $('modulo').value = last.modulo || ''; }
@@ -494,7 +603,7 @@ async function saveEvaluation(){
 
 async function editEvaluation(){
   const ev = allEvaluations.find(e => e.id === currentDetailId); if (!ev) return;
-  resetForm(); fillDatalists(); editingId = ev.id;
+  resetForm(); fillDatalists(); setupPick(); editingId = ev.id;
   $('evalDate').value = ev.data || todayISO();
   FIELDS.forEach(f => $(f).value = ev[f] ?? '');
   Object.entries(ev.ratings || {}).forEach(([k,v]) => setRating(k, v));
@@ -671,10 +780,10 @@ function exportCSV(){
 }
 async function exportBackup(){
   const fotos = await allFotos();
-  const data = {app:'arpec-pastagem', versao:2, criado: new Date().toISOString(), config:{resp:cfg.resp, empresa:cfg.empresa, logo:cfg.logo}, avaliacoes: allEvaluations, fotos};
+  const data = {app:'arpec-pastagem', versao:2, criado: new Date().toISOString(), config:{resp:cfg.resp, empresa:cfg.empresa, logo:cfg.logo}, avaliacoes: allEvaluations, fotos, cadastro: CAD, lotacoes: LOTS};
   downloadFile(JSON.stringify(data), `arpec-backup-${todayISO()}.json`, 'application/json');
   cfg.lastBackup = new Date().toISOString(); persistCfg(); updateHome();
-  alert(`💾 Backup gerado: ${allEvaluations.length} avaliações, ${fotos.length} fotos.\nEnvie o arquivo para o computador ou Drive.`);
+  alert(`💾 Backup gerado: ${allEvaluations.length} avaliações, ${fotos.length} fotos, ${CAD.fazendas.length} fazendas cadastradas, ${LOTS.length} lotações.\nEnvie o arquivo para o computador ou Drive.`);
 }
 async function importBackup(input){
   const f = input.files[0]; input.value = ''; if (!f) return;
@@ -689,7 +798,445 @@ async function importBackup(input){
   if (d.config) { if (d.config.logo && !cfg.logo) { cfg.logo = d.config.logo; await kvSet('logo', cfg.logo); applyLogo(); } }
   allEvaluations.sort((a,b) => (b.data || '').localeCompare(a.data || '') || b.id - a.id);
   saveToStorage();
-  alert(`✅ ${novas} avaliações novas restauradas.`);
+  let nf = 0, nl = 0;
+  if (d.cadastro && Array.isArray(d.cadastro.fazendas)) { const fz = new Set(CAD.fazendas.map(f => f.id)); d.cadastro.fazendas.forEach(f => { if (!fz.has(f.id)) { CAD.fazendas.push(f); nf++; } }); saveCad(); }
+  if (Array.isArray(d.lotacoes)) { const lz = new Set(LOTS.map(l => l.id)); d.lotacoes.forEach(l => { if (!lz.has(l.id)) { LOTS.push(l); nl++; } }); saveLots(); }
+  alert(`✅ Restaurado: ${novas} avaliações, ${nf} fazendas, ${nl} lotações.`);
+}
+
+
+// ======================================================================
+// ===== CADASTRO DE ÁREAS =====
+// Fazenda → unidades (Módulo com piquetes | Setor com pastos) → áreas
+// area: {id, nome, area (ha), aee (ha, área efetiva de pastejo), forrageira, obs}
+// ======================================================================
+function loadCad(){
+  try { CAD = JSON.parse(localStorage.getItem(LS_CAD)) || {fazendas: []}; } catch(e){ CAD = {fazendas: []}; }
+  try { LOTS = JSON.parse(localStorage.getItem(LS_LOT)) || []; } catch(e){ LOTS = []; }
+}
+function saveCad(){ localStorage.setItem(LS_CAD, JSON.stringify(CAD)); }
+function saveLots(){ localStorage.setItem(LS_LOT, JSON.stringify(LOTS)); }
+const P = v => { if (v === '' || v == null) return NaN; if (typeof v === 'number') return v; let t = String(v).trim().replace(/\s/g,''); if (t.includes(',')) t = t.replace(/\./g,'').replace(',', '.'); return parseFloat(t); };
+const r2 = v => Math.round(v * 100) / 100;
+const filho = t => t === 'Setor' ? 'Pasto' : 'Piquete';
+const aeeOf = a => (a.aee === '' || a.aee == null || isNaN(a.aee)) ? (Number(a.area) || 0) : Number(a.aee);
+const uniArea = u => u.areas.reduce((s,a) => s + (Number(a.area) || 0), 0);
+const uniAee = u => u.areas.reduce((s,a) => s + aeeOf(a), 0);
+const fazArea = f => f.unidades.reduce((s,u) => s + uniArea(u), 0);
+const fazAee = f => f.unidades.reduce((s,u) => s + uniAee(u), 0);
+const findFaz = id => CAD.fazendas.find(f => f.id === id);
+let curFazId = null;
+
+function showCadastro(){ renderFazList(); showScreen('cadScreen'); }
+function renderFazList(){
+  $('fazList').innerHTML = CAD.fazendas.length ? CAD.fazendas.map(f => {
+    const nm = f.unidades.filter(u => u.tipo === 'Módulo').length, ns = f.unidades.length - nm;
+    const na = f.unidades.reduce((s,u) => s + u.areas.length, 0);
+    return `<li class="history-item" onclick="openFazenda('${f.id}')">
+      <div class="history-item-header"><div class="history-item-title">${esc(f.nome)}</div><div class="history-item-note" style="font-size:1rem">${num(fazArea(f))} ha</div></div>
+      <div class="history-item-details">${nm} módulos · ${ns} setores · ${na} piquetes/pastos · AEE ${num(fazAee(f))} ha</div></li>`;
+  }).join('') : `<div style="text-align:center;padding:20px;color:var(--text-light)">Nenhuma fazenda cadastrada.<br>Importe sua planilha ou cadastre manualmente.</div>`;
+}
+function lastEvalFor(fz, u, a){ return allEvaluations.find(e => e.fazenda === fz.nome && e.modulo === u.nome && e.piquete === a.nome); }
+function openFazenda(id){
+  curFazId = id; const f = findFaz(id); if (!f) return showCadastro();
+  $('fazTitle').textContent = f.nome;
+  $('fazResumo').innerHTML = `Área total: <b>${num(fazArea(f))} ha</b> · AEE: <b>${num(fazAee(f))} ha</b><br>Toque num módulo/setor para ver e editar os ${'piquetes/pastos'}.`;
+  const grupos = [...new Set(f.unidades.map(u => u.grupo || ''))];
+  $('unidList').innerHTML = grupos.map(g => `${g ? `<h4 style="margin:8px 2px;color:var(--primary-dark)">${esc(g)}</h4>` : ''}` +
+    f.unidades.filter(u => (u.grupo || '') === g).map(u => `
+    <details class="unit" ${u.id === openUnitId ? 'open' : ''} ontoggle="if(this.open)openUnitId='${u.id}'">
+      <summary><div><span class="tag ${u.tipo === 'Setor' ? 'setor' : ''}">${u.tipo}</span><b>${esc(u.nome)}</b><br><span class="hint">${u.areas.length} ${filho(u.tipo).toLowerCase()}s · ${num(uniArea(u))} ha · AEE ${num(uniAee(u))} ha</span></div><span>▾</span></summary>
+      <div class="unit-body">
+        ${u.areas.map(a => { const le = lastEvalFor(f, u, a); return `<div class="arow"><div>${esc(a.nome)}<small>${num(a.area)} ha · AEE ${num(aeeOf(a))} ha${a.forrageira ? ' · ' + esc(a.forrageira) : ''}</small>${le ? `<small>Últ. avaliação: ${String(le.nota).replace('.', ',')} (${classify(le.nota)}) em ${fmtDate(le.data)}</small>` : '<small>Sem avaliação</small>'}</div>
+          <div class="acts"><button onclick="editArea('${u.id}','${a.id}')">✏️</button><button onclick="delArea('${u.id}','${a.id}')">🗑️</button></div></div>`; }).join('')}
+        <div class="row" style="margin-top:8px"><button class="btn-outline btn-small" onclick="editArea('${u.id}')">➕ ${filho(u.tipo)}</button><button class="btn-outline btn-small" onclick="editUnidade('${u.id}')">✏️ ${u.tipo}</button><button class="btn-danger btn-small" style="flex:none" onclick="delUnidade('${u.id}')">🗑️</button></div>
+      </div>
+    </details>`).join('')).join('') || `<div class="section hint">Nenhum módulo ou setor ainda.</div>`;
+  showScreen('fazScreen');
+}
+let openUnitId = null;
+
+// ----- modal genérico -----
+function openForm(title, fields, onSave){
+  $('mTitle').textContent = title;
+  $('mBody').innerHTML = fields.map(f => `<div class="form-group"><label>${esc(f.label)}</label>${
+    f.type === 'select' ? `<select id="mf_${f.k}">${f.opts.map(o => `<option ${o === f.v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
+    : `<input id="mf_${f.k}" type="${f.type || 'text'}" ${f.type === 'number' ? 'step="0.01" min="0" inputmode="decimal"' : ''} value="${esc(f.v ?? '')}" placeholder="${esc(f.ph || '')}" ${f.list ? `list="${f.list}"` : ''}>`
+  }${f.hint ? `<span class="hint">${esc(f.hint)}</span>` : ''}</div>`).join('') +
+  `<datalist id="dlForr">${[...new Set(CAD.fazendas.flatMap(f => f.unidades.flatMap(u => u.areas.map(a => a.forrageira))).filter(Boolean))].map(v => `<option value="${esc(v)}">`).join('')}</datalist>`;
+  $('mOk').onclick = () => { const vals = {}; fields.forEach(f => vals[f.k] = $('mf_' + f.k).value.trim()); if (onSave(vals) !== false) closeModal(); };
+  $('modal').classList.add('open');
+  setTimeout(() => { const first = $('mBody').querySelector('input'); if (first) first.focus(); }, 50);
+}
+function closeModal(){ $('modal').classList.remove('open'); }
+
+function addFazenda(){
+  openForm('Nova fazenda', [{k:'nome', label:'Nome da fazenda', ph:'ex: Fazenda São Sebastião'}], v => {
+    if (!v.nome) { alert('Informe o nome'); return false; }
+    const f = {id: uid(), nome: v.nome, unidades: []}; CAD.fazendas.push(f); saveCad(); openFazenda(f.id);
+  });
+}
+function renameFazenda(){
+  const f = findFaz(curFazId);
+  openForm('Renomear fazenda', [{k:'nome', label:'Nome', v:f.nome}], v => { if (!v.nome) return false; f.nome = v.nome; saveCad(); openFazenda(f.id); });
+}
+function delFazenda(){
+  const f = findFaz(curFazId); if (!confirm(`Excluir "${f.nome}" e todo o cadastro de áreas dela?\n(As avaliações já feitas são mantidas.)`)) return;
+  CAD.fazendas = CAD.fazendas.filter(x => x.id !== f.id); saveCad(); showCadastro();
+}
+function grupoOpts(f){ return [...new Set(f.unidades.map(u => u.grupo).filter(Boolean))]; }
+function addUnidade(tipo){
+  const f = findFaz(curFazId);
+  openForm(`Novo ${tipo.toLowerCase()}`, [
+    {k:'nome', label:`Nome do ${tipo.toLowerCase()}`, ph: tipo === 'Módulo' ? 'ex: Módulo A' : 'ex: Setor 1'},
+    {k:'grupo', label:'Grupo / atividade (opcional)', v: grupoOpts(f)[0] || '', ph:'ex: Cria, Recria / Engorda'}
+  ], v => {
+    if (!v.nome) { alert('Informe o nome'); return false; }
+    const u = {id: uid(), tipo, nome: v.nome, grupo: v.grupo, areas: []}; f.unidades.push(u); saveCad(); openUnitId = u.id; openFazenda(f.id);
+  });
+}
+function editUnidade(uid_){
+  const f = findFaz(curFazId), u = f.unidades.find(x => x.id === uid_);
+  openForm(`Editar ${u.tipo.toLowerCase()}`, [
+    {k:'nome', label:'Nome', v:u.nome},
+    {k:'tipo', label:'Tipo', type:'select', opts:['Módulo','Setor'], v:u.tipo},
+    {k:'grupo', label:'Grupo / atividade', v:u.grupo || ''}
+  ], v => { if (!v.nome) return false; Object.assign(u, v); saveCad(); openFazenda(f.id); });
+}
+function delUnidade(uid_){
+  const f = findFaz(curFazId), u = f.unidades.find(x => x.id === uid_);
+  if (!confirm(`Excluir ${u.tipo} "${u.nome}" e seus ${u.areas.length} ${filho(u.tipo).toLowerCase()}s?`)) return;
+  f.unidades = f.unidades.filter(x => x.id !== uid_); saveCad(); openFazenda(f.id);
+}
+function editArea(uid_, aid){
+  const f = findFaz(curFazId), u = f.unidades.find(x => x.id === uid_), a = aid ? u.areas.find(x => x.id === aid) : null, nm = filho(u.tipo);
+  openForm(a ? `Editar ${nm.toLowerCase()}` : `Novo ${nm.toLowerCase()} – ${u.nome}`, [
+    {k:'nome', label:`Nome do ${nm.toLowerCase()}`, v:a?.nome},
+    {k:'area', label:'Área total (ha)', type:'number', v:a?.area},
+    {k:'aee', label:'AEE – área efetiva de pastejo (ha)', type:'number', v:a?.aee, hint:'Deixe vazio se for igual à área total.'},
+    {k:'forrageira', label:'Forrageira', v:a?.forrageira, list:'dlForr', ph:'ex: Mombaça'}
+  ], v => {
+    if (!v.nome) { alert('Informe o nome'); return false; }
+    const area = P(v.area); if (!(area > 0)) { alert('Informe a área em ha'); return false; }
+    const aee = v.aee === '' ? '' : P(v.aee);
+    if (aee !== '' && (isNaN(aee) || aee > area)) { alert('A AEE deve ser um número menor ou igual à área total'); return false; }
+    const data = {nome: v.nome, area: Math.round(area*10000)/10000, aee: aee === '' ? '' : Math.round(aee*10000)/10000, forrageira: v.forrageira};
+    if (a) Object.assign(a, data); else u.areas.push({id: uid(), ...data});
+    saveCad(); openUnitId = u.id; openFazenda(f.id);
+  });
+}
+function delArea(uid_, aid){
+  const f = findFaz(curFazId), u = f.unidades.find(x => x.id === uid_), a = u.areas.find(x => x.id === aid);
+  if (!confirm(`Excluir "${a.nome}"?`)) return;
+  u.areas = u.areas.filter(x => x.id !== aid); saveCad(); openUnitId = u.id; openFazenda(f.id);
+}
+
+// ===== IMPORTAÇÃO DE PLANILHA (.xlsx / .csv) – leitor próprio, funciona off-line =====
+function colIdx(ref){ const m = /^[A-Z]+/.exec(ref || ''); if (!m) return 0; let n = 0; for (const ch of m[0]) n = n*26 + ch.charCodeAt(0) - 64; return n - 1; }
+async function readXlsx(buf){
+  const u8 = new Uint8Array(buf), dv = new DataView(buf);
+  let e = u8.length - 22; while (e >= 0 && dv.getUint32(e, true) !== 0x06054b50) e--;
+  if (e < 0) throw new Error('Arquivo .xlsx inválido');
+  const n = dv.getUint16(e + 10, true); let p = dv.getUint32(e + 16, true); const files = {};
+  const td = new TextDecoder();
+  for (let i = 0; i < n; i++) {
+    const method = dv.getUint16(p + 10, true), csize = dv.getUint32(p + 20, true), nl = dv.getUint16(p + 28, true), el = dv.getUint16(p + 30, true), cl = dv.getUint16(p + 32, true), off = dv.getUint32(p + 42, true);
+    files[td.decode(u8.subarray(p + 46, p + 46 + nl))] = {method, csize, off}; p += 46 + nl + el + cl;
+  }
+  const get = async name => {
+    const f = files[name]; if (!f) return null;
+    const st = f.off + 30 + dv.getUint16(f.off + 26, true) + dv.getUint16(f.off + 28, true);
+    const data = u8.subarray(st, st + f.csize);
+    if (f.method === 0) return td.decode(data);
+    const out = await new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).arrayBuffer();
+    return td.decode(out);
+  };
+  const xml = t => new DOMParser().parseFromString(t, 'application/xml');
+  const ss = []; const sst = await get('xl/sharedStrings.xml');
+  if (sst) for (const si of xml(sst).getElementsByTagName('si')) ss.push([...si.getElementsByTagName('t')].map(t => t.textContent).join(''));
+  const wb = xml(await get('xl/workbook.xml')), rels = xml(await get('xl/_rels/workbook.xml.rels')), relMap = {};
+  for (const r of rels.getElementsByTagName('Relationship')) relMap[r.getAttribute('Id')] = r.getAttribute('Target');
+  const sheets = [];
+  for (const sh of wb.getElementsByTagName('sheet')) {
+    const rid = sh.getAttribute('r:id') || [...sh.attributes].find(a => a.name.endsWith(':id'))?.value;
+    let t = relMap[rid]; if (!t) continue;
+    t = t.startsWith('/') ? t.slice(1) : 'xl/' + t.replace(/^\.\//, '');
+    const doc = xml(await get(t) || '<x/>'), rows = [];
+    for (const r of doc.getElementsByTagName('row')) {
+      const row = [];
+      for (const c of r.getElementsByTagName('c')) {
+        const ty = c.getAttribute('t'), v = c.getElementsByTagName('v')[0];
+        row[colIdx(c.getAttribute('r'))] = ty === 's' ? (ss[+(v?.textContent)] ?? '') : ty === 'inlineStr' ? [...c.getElementsByTagName('t')].map(x => x.textContent).join('') : (v ? v.textContent : '');
+      }
+      rows[parseInt(r.getAttribute('r')) - 1] = row;
+    }
+    sheets.push({name: sh.getAttribute('name'), rows: Array.from(rows, r => r || [])});
+  }
+  return sheets;
+}
+function parseCSV(text){
+  text = text.replace(/^﻿/, ''); const first = text.split(/\r?\n/)[0];
+  const d = (first.match(/;/g) || []).length >= (first.match(/,/g) || []).length ? ';' : ',';
+  const rows = []; let row = [], cur = '', q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) { if (ch === '"') { if (text[i+1] === '"') { cur += '"'; i++; } else q = false; } else cur += ch; }
+    else if (ch === '"') q = true;
+    else if (ch === d) { row.push(cur); cur = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i+1] === '\n') i++; row.push(cur); rows.push(row); row = []; cur = ''; }
+    else cur += ch;
+  }
+  if (cur || row.length) { row.push(cur); rows.push(row); }
+  return [{name: 'CSV', rows}];
+}
+const norm = v => String(v ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+function mapHeader(row){
+  const m = {};
+  row.forEach((h, i) => {
+    const t = norm(h); if (!t) return;
+    const set = k => { if (m[k] === undefined) m[k] = i; };
+    if (/^aee ?\(ha\)|^aee ha|area efetiva|^aee \(/.test(t)) set('aeeHa');
+    else if (/^aee$|^fator|^% ?aee|coef/.test(t)) set('aeeF');
+    else if (/^area|hectare|^ha$|tamanho/.test(t)) set('area');
+    else if (/^fazenda|propriedade/.test(t)) set('fazenda');
+    else if (/^tipo/.test(t)) set('tipo');
+    else if (/forrag|capim|cultivar|especie|gramine/.test(t)) set('forr');
+    else if (/piquete|pasto|talhao|parcela/.test(t)) set('nome');
+    else if (/modulo|setor|unidade|retiro|divis/.test(t)) set('unidade');
+    else if (/^obs/.test(t)) set('obs');
+  });
+  return m;
+}
+function sheetToRecords(sheet){
+  const rows = sheet.rows; let hi = -1, map = null;
+  for (let i = 0; i < Math.min(rows.length, 20); i++) { const m = mapHeader(rows[i] || []); if (m.nome !== undefined && m.area !== undefined) { hi = i; map = m; break; } }
+  if (hi < 0) return null;
+  const hdrUni = map.unidade !== undefined ? String(rows[hi][map.unidade]).trim() : '';
+  const grupoHdr = /^setor\s+(.+)/i.exec(hdrUni)?.[1] || '';
+  const recs = []; let lastFaz = '', lastUni = '';
+  for (let i = hi + 1; i < rows.length; i++) {
+    const r = rows[i] || []; const g = k => map[k] !== undefined ? String(r[map[k]] ?? '').trim() : '';
+    const nome = g('nome'), area = P(g('area'));
+    if (g('fazenda')) lastFaz = g('fazenda');
+    if (g('unidade')) lastUni = g('unidade');
+    if (!nome || !(area > 0) || /^(sub)?total|^soma/i.test(nome) || /^(sub)?total/i.test(g('unidade'))) continue;
+    let aee = P(g('aeeHa'));
+    if (isNaN(aee)) { const f = P(g('aeeF')); aee = isNaN(f) ? '' : area * (f > 1 ? f / 100 : f); }
+    const uni = lastUni || 'Geral', tv = norm(g('tipo'));
+    const tipo = tv ? (tv.startsWith('set') ? 'Setor' : 'Módulo') : (/^m[oó]d/i.test(uni) ? 'Módulo' : 'Setor');
+    recs.push({fazenda: lastFaz, unidade: uni, tipo, grupo: grupoHdr || '', nome, area: Math.round(area*10000)/10000, aee: aee === '' ? '' : Math.round(aee*10000)/10000, forrageira: g('forr'), obs: g('obs')});
+  }
+  return recs.length ? recs : null;
+}
+async function importarPlanilha(input){
+  const file = input.files[0]; input.value = ''; if (!file) return;
+  let sheets;
+  try {
+    if (/\.xlsx$/i.test(file.name)) sheets = await readXlsx(await file.arrayBuffer());
+    else if (/\.(csv|txt)$/i.test(file.name)) sheets = parseCSV(await file.text());
+    else { alert('Use arquivo .xlsx ou .csv'); return; }
+  } catch(e) { alert('Não foi possível ler a planilha: ' + e.message + '\nSe for .xls antigo, salve como .xlsx.'); return; }
+  const used = []; let recs = [];
+  for (const sh of sheets) { const r = sheetToRecords(sh); if (r) { const multi = true; r.forEach(x => { if (!x.grupo && sheets.length > 1) x.grupo = sh.name; }); recs = recs.concat(r); used.push(sh.name); } }
+  if (!recs.length) { alert('Não encontrei colunas de piquete/pasto e área na planilha.\nBaixe a planilha modelo para ver o formato esperado.'); return; }
+  // nome da fazenda quando não há coluna
+  if (recs.some(r => !r.fazenda)) {
+    let sug = '';
+    for (const sh of sheets) { for (const row of sh.rows.slice(0, 5)) for (const c of row || []) if (!sug && /^fazenda\s+\S/i.test(String(c || '').trim())) sug = String(c).trim(); }
+    if (!sug) sug = file.name.replace(/\.[^.]+$/, '');
+    const nomeF = prompt('Nome da fazenda desta planilha:', sug); if (!nomeF) return;
+    recs.forEach(r => { if (!r.fazenda) r.fazenda = nomeF.trim(); });
+  }
+  const porFaz = {}; recs.forEach(r => (porFaz[r.fazenda] = porFaz[r.fazenda] || []).push(r));
+  for (const [nomeF, rs] of Object.entries(porFaz)) {
+    const unis = [...new Set(rs.map(r => r.grupo + '|' + r.unidade))];
+    const nMod = new Set(rs.filter(r => r.tipo === 'Módulo').map(r => r.unidade)).size, nSet = new Set(rs.filter(r => r.tipo === 'Setor').map(r => r.unidade)).size;
+    const at = rs.reduce((s,r) => s + r.area, 0), ae = rs.reduce((s,r) => s + (r.aee === '' ? r.area : r.aee), 0);
+    const exist = CAD.fazendas.find(f => norm(f.nome) === norm(nomeF));
+    const msg = `${nomeF}\n\n${nMod} módulos · ${nSet} setores · ${rs.length} piquetes/pastos\nÁrea total: ${num(at)} ha · AEE: ${num(ae)} ha\nAbas lidas: ${used.join(', ')}\n\n` + (exist ? 'Esta fazenda já existe no cadastro. Substituir as áreas dela?' : 'Importar?');
+    if (!confirm(msg)) continue;
+    const f = exist || {id: uid(), nome: nomeF, unidades: []};
+    f.unidades = [];
+    for (const key of unis) {
+      const rr = rs.filter(r => r.grupo + '|' + r.unidade === key);
+      f.unidades.push({id: uid(), tipo: rr[0].tipo, nome: rr[0].unidade, grupo: rr[0].grupo, areas: rr.map(r => ({id: uid(), nome: r.nome, area: r.area, aee: r.aee, forrageira: r.forrageira, obs: r.obs}))});
+    }
+    if (!exist) CAD.fazendas.push(f);
+    saveCad();
+  }
+  renderFazList();
+}
+function baixarModelo(){
+  const L = [['Fazenda','Grupo','Módulo / Setor','Piquete / Pasto','Forrageira','Área (ha)','AEE (ha)'],
+    ['Fazenda Exemplo','Cria','Módulo A','A - 1','Brizanta Marandú','6,24','6,24'],
+    ['Fazenda Exemplo','Cria','Módulo A','A - 2','Brizanta Marandú','8,79','8,79'],
+    ['Fazenda Exemplo','Recria / Engorda','Setor 1','P - 1','Mombaça','5,00','3,00'],
+    ['Fazenda Exemplo','Recria / Engorda','Setor 1','P - 2','Mombaça','6,12','3,67']];
+  downloadFile('﻿' + L.map(r => r.map(c => `"${c}"`).join(';')).join('\n'), 'arpec-modelo-cadastro.csv', 'text/csv;charset=utf-8');
+}
+// (a coluna "Grupo" é opcional; nomes que começam com "Módulo" viram módulo, os demais viram setor)
+const _origMap = mapHeader;
+
+// ===== ESCOLHER DO CADASTRO NA AVALIAÇÃO =====
+function setupPick(){
+  const box = $('cadPick'); if (!CAD.fazendas.length) { box.style.display = 'none'; return; }
+  box.style.display = 'block';
+  $('pkFaz').innerHTML = '<option value="">Fazenda…</option>' + CAD.fazendas.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+  if (CAD.fazendas.length === 1) { $('pkFaz').value = CAD.fazendas[0].id; }
+  pickFaz(true);
+}
+function pickFaz(keep){
+  const f = findFaz($('pkFaz').value);
+  $('pkUni').innerHTML = '<option value="">Módulo / Setor…</option>' + (f ? f.unidades.map(u => `<option value="${u.id}">${u.tipo === 'Setor' ? '◇' : '▣'} ${esc(u.nome)}${u.grupo ? ' – ' + esc(u.grupo) : ''}</option>`).join('') : '');
+  $('pkArea').innerHTML = '<option value="">Piquete / Pasto…</option>';
+  if (f && !keep) $('fazenda').value = f.nome;
+  if (f && keep && !$('fazenda').value) $('fazenda').value = f.nome;
+}
+function pickUni(){
+  const f = findFaz($('pkFaz').value), u = f?.unidades.find(x => x.id === $('pkUni').value);
+  $('pkArea').innerHTML = '<option value="">' + (u ? filho(u.tipo) : 'Piquete / Pasto') + '…</option>' + (u ? u.areas.map(a => `<option value="${a.id}">${esc(a.nome)} (${num(a.area)} ha)</option>`).join('') : '');
+  if (u) { $('fazenda').value = f.nome; $('modulo').value = u.nome; }
+}
+function pickArea(){
+  const f = findFaz($('pkFaz').value), u = f?.unidades.find(x => x.id === $('pkUni').value), a = u?.areas.find(x => x.id === $('pkArea').value);
+  if (!a) return;
+  $('fazenda').value = f.nome; $('modulo').value = u.nome; $('piquete').value = a.nome; $('area').value = a.area;
+  if (a.forrageira) $('forrageira').value = a.forrageira;
+}
+
+// ===== LOTAÇÃO =====
+// instantânea = UA ÷ AEE do piquete/pasto · efetiva = UA ÷ AEE total do módulo/setor
+// fazenda = UA total ÷ (área total − reforma − alagado)
+let lotOcup = {};   // areaId -> [{cat, n, peso}]
+function showLotacao(){
+  if (!CAD.fazendas.length) { if (confirm('Cadastre as áreas da fazenda primeiro (pode importar sua planilha). Abrir o cadastro?')) showCadastro(); return; }
+  $('lotFaz').innerHTML = CAD.fazendas.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+  $('lotData').value = todayISO();
+  loadLotForm(); showScreen('lotScreen');
+}
+function lastLot(fid){ return LOTS.filter(l => l.fazendaId === fid).sort((a,b) => b.data.localeCompare(a.data) || b.id - a.id)[0]; }
+function loadLotForm(){
+  const f = findFaz($('lotFaz').value), last = lastLot(f.id);
+  lotOcup = last ? JSON.parse(JSON.stringify(last.ocup || {})) : {};
+  $('lotReforma').value = last ? last.reforma : ''; $('lotAlagado').value = last ? last.alagado : '';
+  renderLotUnidades(); renderLotHist();
+}
+function uaLots(ls){ return (ls || []).reduce((s,l) => s + (P(l.n) || 0) * (P(l.peso) || 0) / 450, 0); }
+function cabLots(ls){ return (ls || []).reduce((s,l) => s + (P(l.n) || 0), 0); }
+function renderLotUnidades(){
+  const f = findFaz($('lotFaz').value); const grupos = [...new Set(f.unidades.map(u => u.grupo || ''))];
+  $('lotUnidades').innerHTML = grupos.map(g => (g ? `<h4 style="margin:8px 2px;color:var(--primary-dark)">${esc(g)}</h4>` : '') + f.unidades.filter(u => (u.grupo || '') === g).map(u => {
+    const ocupado = u.areas.some(a => cabLots(lotOcup[a.id]) > 0);
+    return `<details class="unit" ${ocupado ? 'open' : ''}>
+      <summary><div><span class="tag ${u.tipo === 'Setor' ? 'setor' : ''}">${u.tipo}</span><b>${esc(u.nome)}</b><br><span class="hint" id="us_${u.id}"></span></div><span>▾</span></summary>
+      <div class="unit-body">
+        <div class="lot-head"><span>${filho(u.tipo)} (AEE)</span><span>Nº cab.</span><span>Peso méd. kg</span></div>
+        ${u.areas.map(a => { const ls = lotOcup[a.id] && lotOcup[a.id].length ? lotOcup[a.id] : [{cat:'', n:'', peso:''}];
+          return ls.map((l, li) => `<div class="lot-row">
+            <div class="lot-name">${li === 0 ? `${esc(a.nome)}<small>${num(aeeOf(a))} ha AEE</small>` : `<small>+ lote ${li + 1}</small>`}
+              <input type="text" placeholder="categoria" value="${esc(l.cat || '')}" style="margin-top:3px;padding:5px 6px;font-size:14px" oninput="setLot('${a.id}',${li},'cat',this.value)"></div>
+            <input type="number" inputmode="numeric" min="0" value="${esc(l.n)}" oninput="setLot('${a.id}',${li},'n',this.value)">
+            <input type="number" inputmode="decimal" min="0" step="0.1" value="${esc(l.peso)}" oninput="setLot('${a.id}',${li},'peso',this.value)">
+          </div>`).join('') + `<div class="lot-inst" id="li_${a.id}"></div><div style="text-align:right"><button class="btn-small" style="flex:none;background:none;color:var(--primary);padding:2px 4px" onclick="addLote('${a.id}')">+ lote (ex.: vacas e bezerros)</button></div>`; }).join('')}
+        <div class="unit-foot" id="uf_${u.id}"></div>
+      </div></details>`; }).join('')).join('');
+  calcLot();
+}
+function setLot(aid, li, k, v){ if (!lotOcup[aid] || !lotOcup[aid].length) lotOcup[aid] = [{cat:'', n:'', peso:''}]; while (lotOcup[aid].length <= li) lotOcup[aid].push({cat:'', n:'', peso:''}); lotOcup[aid][li][k] = v; calcLot(); }
+function addLote(aid){ if (!lotOcup[aid] || !lotOcup[aid].length) lotOcup[aid] = [{cat:'', n:'', peso:''}]; lotOcup[aid].push({cat:'', n:'', peso:''}); renderLotUnidades(); }
+
+function computeLot(f, ocup, reforma, alagado){
+  const R = {unidades: [], grupos: {}};
+  for (const u of f.unidades) {
+    const areas = u.areas.map(a => { const ls = (ocup[a.id] || []).filter(l => P(l.n) > 0);
+      const cab = cabLots(ls), ua = uaLots(ls), base = aeeOf(a) || Number(a.area);
+      return {nome: a.nome, area: Number(a.area), aee: aeeOf(a), cab, peso: cab ? ua * 450 / cab : 0, ua, cat: ls.map(l => l.cat).filter(Boolean).join(' + '), inst: cab && base ? ua / base : null}; });
+    const area = uniArea(u), aee = uniAee(u), ua = areas.reduce((s,a) => s + a.ua, 0), cab = areas.reduce((s,a) => s + a.cab, 0);
+    const x = {tipo: u.tipo, nome: u.nome, grupo: u.grupo || '', area, aee, ua, cab, peso: cab ? ua * 450 / cab : 0, efet: aee ? ua / aee : (area ? ua / area : 0), areas};
+    R.unidades.push(x);
+    const g = R.grupos[x.grupo] = R.grupos[x.grupo] || {area:0, aee:0, ua:0, cab:0}; g.area += area; g.aee += aee; g.ua += ua; g.cab += cab;
+  }
+  R.area = fazArea(f); R.aee = fazAee(f); R.reforma = reforma; R.alagado = alagado;
+  R.util = R.area - reforma - alagado;
+  R.ua = R.unidades.reduce((s,u) => s + u.ua, 0); R.cab = R.unidades.reduce((s,u) => s + u.cab, 0);
+  R.peso = R.cab ? R.ua * 450 / R.cab : 0;
+  R.lotFaz = R.util > 0 ? R.ua / R.util : 0; R.lotAee = R.aee ? R.ua / R.aee : 0;
+  return R;
+}
+function calcLot(){
+  const f = findFaz($('lotFaz').value); if (!f) return;
+  const ref = P($('lotReforma').value) || 0, ala = P($('lotAlagado').value) || 0;
+  const R = computeLot(f, lotOcup, ref, ala);
+  f.unidades.forEach((u, i) => {
+    const x = R.unidades[i];
+    u.areas.forEach((a, j) => { const el = $('li_' + a.id); if (el) { const y = x.areas[j]; el.textContent = y.inst != null ? `Instantânea: ${num(y.inst)} UA/ha · ${num(y.ua,1)} UA` : ''; } });
+    const us = $('us_' + u.id); if (us) us.textContent = `${num(x.area)} ha · AEE ${num(x.aee)} ha` + (x.cab ? ` · ${x.cab} cab · efetiva ${num(x.efet)} UA/ha` : '');
+    const uf = $('uf_' + u.id); if (uf) uf.innerHTML = x.cab ? `<b>Lotação efetiva: ${num(x.efet)} UA/ha</b><br>${x.cab} cab · ${num(x.ua,1)} UA · peso médio ${num(x.peso,0)} kg · AEE ${num(x.aee)} ha` : '<span class="hint">Sem animais neste ' + u.tipo.toLowerCase() + '.</span>';
+  });
+  const warn = (ref + ala) > R.area ? '<p style="color:var(--danger);font-size:.85rem">⚠️ Reforma + alagado maior que a área total.</p>' : '';
+  $('lotResumo').innerHTML = `<div class="section-title">Resumo – ${esc(f.nome)}</div>${warn}
+    <div class="kpi">
+      <div class="big">Lotação da fazenda<b>${num(R.lotFaz)} UA/ha</b><span style="font-size:.78rem;opacity:.9">${num(R.ua,1)} UA ÷ ${num(R.util)} ha úteis</span></div>
+      <div>Área total<b>${num(R.area)} ha</b></div>
+      <div>Área útil<b>${num(R.util)} ha</b><span>− ${num(ref)} reforma − ${num(ala)} alagado</span></div>
+      <div>Rebanho<b>${R.cab} cab</b><span>${num(R.ua,1)} UA · ${num(R.peso,0)} kg</span></div>
+      <div>Sobre a AEE<b>${num(R.lotAee)} UA/ha</b><span>AEE ${num(R.aee)} ha</span></div>
+    </div>
+    ${Object.keys(R.grupos).length > 1 ? `<table style="width:100%;font-size:.82rem;margin-top:10px;border-collapse:collapse">${Object.entries(R.grupos).map(([g,v]) => `<tr style="border-bottom:1px solid var(--border)"><td style="padding:4px 0">${esc(g || 'Sem grupo')}</td><td>${v.cab} cab</td><td>${num(v.ua,1)} UA</td><td style="text-align:right"><b>${num(v.aee ? v.ua / v.aee : 0)}</b> UA/ha AEE</td></tr>`).join('')}</table>` : ''}`;
+  return R;
+}
+function saveLot(){
+  const f = findFaz($('lotFaz').value);
+  if ($('lotReforma').value === '' || $('lotAlagado').value === '') { alert('Informe quantos hectares estão em reforma e quantos estão alagados (use 0 se não houver).'); ($('lotReforma').value === '' ? $('lotReforma') : $('lotAlagado')).focus(); return; }
+  const R = calcLot(); if (!R.cab) { alert('Informe os animais em pelo menos um piquete/pasto.'); return; }
+  const ocup = {}; Object.entries(lotOcup).forEach(([k, ls]) => { const v = ls.filter(l => P(l.n) > 0); if (v.length) ocup[k] = v; });
+  LOTS.push({id: Date.now(), data: $('lotData').value || todayISO(), fazendaId: f.id, fazenda: f.nome, reforma: R.reforma, alagado: R.alagado, ocup, res: R});
+  saveLots(); renderLotHist(); alert(`✅ Lotação salva: ${num(R.lotFaz)} UA/ha`);
+}
+function renderLotHist(){
+  const fid = $('lotFaz').value, ls = LOTS.filter(l => l.fazendaId === fid).sort((a,b) => b.data.localeCompare(a.data) || b.id - a.id);
+  $('lotHist').innerHTML = ls.length ? ls.map(l => `<li class="history-item" style="cursor:default">
+    <div class="history-item-header"><div><div class="history-item-title">${fmtDate(l.data)}</div><div class="history-item-date">${l.res.cab} cab · ${num(l.res.ua,1)} UA · útil ${num(l.res.util)} ha</div></div><div class="history-item-note">${num(l.res.lotFaz)}</div></div>
+    <div class="row" style="margin-top:6px"><button class="btn-outline btn-small" onclick="printLot(${l.id})">📄 PDF</button><button class="btn-outline btn-small" onclick="delLot(${l.id})">🗑️ Excluir</button></div></li>`).join('') : '<div class="hint">Nenhuma lotação salva para esta fazenda.</div>';
+}
+function delLot(id){ if (!confirm('Excluir esta lotação?')) return; LOTS = LOTS.filter(l => l.id !== id); saveLots(); renderLotHist(); }
+function printLotAtual(){
+  const f = findFaz($('lotFaz').value), R = calcLot();
+  if ($('lotReforma').value === '' || $('lotAlagado').value === '') { alert('Informe os hectares em reforma e alagados (use 0 se não houver).'); return; }
+  printLotRes(f.nome, $('lotData').value || todayISO(), R);
+}
+function printLot(id){ const l = LOTS.find(x => x.id === id); if (l) printLotRes(l.fazenda, l.data, l.res); }
+function printLotRes(nomeF, data, R){
+  const grupos = [...new Set(R.unidades.map(u => u.grupo))];
+  const blocos = grupos.map(g => {
+    const us = R.unidades.filter(u => u.grupo === g), G = R.grupos[g];
+    return `${g ? `<h3>${esc(g)}</h3>` : ''}<table>
+      <tr><th>Módulo / Setor</th><th>Piquete / Pasto</th><th>Categoria</th><th class="c">Área (ha)</th><th class="c">AEE (ha)</th><th class="c">Cab.</th><th class="c">Peso (kg)</th><th class="c">UA</th><th class="c">UA/ha</th></tr>
+      ${us.map(u => { const oc = u.areas.filter(a => a.cab);
+        return (oc.length ? oc : [null]).map((a, i) => `<tr>${i === 0 ? `<td rowspan="${Math.max(oc.length,1) + 1}"><b>${esc(u.nome)}</b><br><span style="font-size:8.5pt;color:#555">${u.tipo}</span></td>` : ''}
+          ${a ? `<td>${esc(a.nome)}</td><td>${esc(a.cat || '-')}</td><td class="c">${num(a.area)}</td><td class="c">${num(a.aee)}</td><td class="c">${a.cab}</td><td class="c">${num(a.peso,0)}</td><td class="c">${num(a.ua,1)}</td><td class="c">${num(a.inst)}<br><span style="font-size:8pt;color:#555">instant.</span></td>`
+              : `<td colspan="8" style="color:#555">Sem animais</td>`}</tr>`).join('') +
+          `<tr style="background:#f2f2f2"><td colspan="2"><b>Total ${u.tipo.toLowerCase()}</b> (${u.areas.length} ${filho(u.tipo).toLowerCase()}s)</td><td class="c">${num(u.area)}</td><td class="c">${num(u.aee)}</td><td class="c">${u.cab || '-'}</td><td class="c">${u.cab ? num(u.peso,0) : '-'}</td><td class="c">${num(u.ua,1)}</td><td class="c"><b>${num(u.efet)}</b><br><span style="font-size:8pt;color:#555">efetiva</span></td></tr>`; }).join('')}
+      ${g && grupos.length > 1 ? `<tr><th colspan="3">Subtotal ${esc(g)}</th><th class="c">${num(G.area)}</th><th class="c">${num(G.aee)}</th><th class="c">${G.cab}</th><th class="c">${G.cab ? num(G.ua * 450 / G.cab, 0) : '-'}</th><th class="c">${num(G.ua,1)}</th><th class="c">${num(G.aee ? G.ua / G.aee : 0)}</th></tr>` : ''}
+    </table>`; }).join('');
+  const html = `${repHeader('Relatório de Lotação', `${nomeF} · ${fmtDate(data)}`)}
+    <div class="score"><div>Lotação da fazenda<b>${num(R.lotFaz)} UA/ha</b></div><div>Rebanho<b>${R.cab} cab · ${num(R.ua,1)} UA</b></div><div>Área útil<b>${num(R.util)} ha</b></div></div>
+    <h3>Cálculo da lotação da fazenda</h3>
+    <table>
+      <tr><th style="width:55%">Área total de pastagens</th><td class="c">${num(R.area)} ha</td></tr>
+      <tr><th>(−) Área em reforma</th><td class="c">${num(R.reforma)} ha</td></tr>
+      <tr><th>(−) Área alagada</th><td class="c">${num(R.alagado)} ha</td></tr>
+      <tr><th>(=) Área útil</th><td class="c"><b>${num(R.util)} ha</b></td></tr>
+      <tr><th>Unidades animais (UA = peso ÷ 450)</th><td class="c">${num(R.ua,1)} UA · ${R.cab} cab · ${num(R.peso,0)} kg médio</td></tr>
+      <tr><th>Lotação da fazenda (UA ÷ área útil)</th><td class="c"><b>${num(R.lotFaz)} UA/ha</b></td></tr>
+      <tr><th>Referência: lotação sobre a AEE (${num(R.aee)} ha)</th><td class="c">${num(R.lotAee)} UA/ha</td></tr>
+    </table>
+    <h3 class="pb" style="page-break-before:auto">Lotação por módulo e setor</h3>
+    <p style="font-size:9pt;color:#333;margin-bottom:4pt">Instantânea = UA ÷ AEE do piquete/pasto ocupado. Efetiva = UA ÷ AEE total do módulo/setor.</p>
+    ${blocos}
+    ${repFooter()}`;
+  doPrint(html, `Lotacao_${nomeF}_${data}`.replace(/[^\w\-]+/g, '_'));
 }
 
 // ===== INSTALAÇÃO (PWA) =====
@@ -704,7 +1251,7 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 
 // ===== INICIAR =====
 (async function init(){
-  buildForm(); loadEvaluations(); await loadConfig(); updateHome();
+  buildForm(); loadEvaluations(); loadCad(); await loadConfig(); updateHome();
 })();
 </script>
 </body>
