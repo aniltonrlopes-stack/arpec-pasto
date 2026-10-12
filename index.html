@@ -157,11 +157,11 @@ body.enc .adm{display:none!important}
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último envio:</strong> <span id="lastBackup">nunca</span></p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Último recebimento:</strong> <span id="lastRecv">nunca</span></p>
-    <p class="hint">Versão 3.5 | Escala Técnica ArPec</p>
+    <p class="hint">Versão 3.6 | Escala Técnica ArPec</p>
   </div>
   <div class="section">
     <div class="section-title">🔄 Sincronizar</div>
-    <p class="hint" style="margin-bottom:8px">Troque os dados com o consultor/encarregada pelo WhatsApp. O app junta tudo sem duplicar.</p>
+    <p class="hint" style="margin-bottom:8px">Troque os dados entre o consultor e a fazenda pelo WhatsApp. O app junta tudo sem duplicar.</p>
     <div class="row">
       <button class="btn-primary btn-small" onclick="enviarDados()">📤 Enviar dados</button>
       <button class="btn-secondary btn-small" onclick="document.getElementById('recvInput').click()">📥 Receber dados</button>
@@ -541,7 +541,7 @@ function saveSettings(){ if (!adm()) { if (typeof input !== 'undefined' && input
   persistCfg();
   alert('✅ Ajustes salvos');
 }
-function persistCfg(){ localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup, lastRecv: cfg.lastRecv, manejo: cfg.manejo, usuario: cfg.usuario, perfil: cfg.perfil, pinHash: cfg.pinHash})); }
+function persistCfg(){ localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup, lastRecv: cfg.lastRecv, manejo: cfg.manejo, usuario: cfg.usuario, perfil: cfg.perfil, pinHash: cfg.pinHash, fazendaVinc: cfg.fazendaVinc})); }
 
 // ===== ARMAZENAMENTO =====
 function loadEvaluations(){ try { allEvaluations = JSON.parse(localStorage.getItem(LS_EVAL)) || []; } catch(e){ allEvaluations = []; } }
@@ -1462,23 +1462,24 @@ function puxarDasAvaliacoes(){
 // ===== PERFIS / ACESSO =====
 const LS_TOMB = 'arpecExcluidos';
 const isEnc = () => cfg.perfil === 'encarregada';
+const labelPerfil = () => isEnc() ? (cfg.fazendaVinc || 'Campo') : 'Consultor';
 function adm(){ if (isEnc()) { alert('🔒 Somente o consultor pode fazer isso.'); return false; } return true; }
 function getTombs(){ try { return JSON.parse(localStorage.getItem(LS_TOMB)) || {eval:{}, lot:{}, faz:{}}; } catch(e){ return {eval:{}, lot:{}, faz:{}}; } }
 function tomb(tipo, id){ const t = getTombs(); (t[tipo] = t[tipo] || {})[id] = new Date().toISOString(); localStorage.setItem(LS_TOMB, JSON.stringify(t)); }
 async function sha(txt){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('arpec:' + txt)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join(''); }
 function applyPerfil(){
   document.body.classList.toggle('enc', isEnc());
-  $('hdrWho').textContent = `👤 ${cfg.usuario || 'sem nome'} · ${isEnc() ? 'Encarregada' : 'Consultor'}`;
+  $('hdrWho').textContent = `👤 ${cfg.usuario || 'sem nome'} · ${labelPerfil()}`;
   const cs = $('cadSoLeitura'); if (cs) cs.style.display = isEnc() ? 'block' : 'none';
 }
 function renderAcesso(){
   const box = $('acessoBox'); if (!box) return;
-  box.innerHTML = `<p style="font-size:.9rem"><b>${esc(cfg.usuario || '-')}</b> · perfil <b>${isEnc() ? 'Encarregada' : 'Consultor'}</b></p>
-    <p class="hint" style="margin:4px 0 10px">${isEnc() ? 'Pode lançar e editar avaliações e lotações. Excluir, alterar cadastro, referências e ajustes é com o consultor.' : 'Acesso total.' + (cfg.pinHash ? ' PIN definido ✅' : ' ⚠️ Defina um PIN antes de enviar dados para a encarregada.')}</p>
+  box.innerHTML = `<p style="font-size:.9rem"><b>${esc(cfg.usuario || '-')}</b> · aparelho <b>${esc(labelPerfil())}</b></p>
+    <p class="hint" style="margin:4px 0 10px">${isEnc() ? 'Pode lançar e editar avaliações e lotações. Excluir, alterar cadastro, referências e ajustes é com o consultor.' : 'Acesso total.' + (cfg.pinHash ? ' PIN definido ✅' : ' ⚠️ Defina um PIN antes de enviar dados para a fazenda.')}</p>
     <div class="row" style="flex-wrap:wrap">
       <button class="btn-outline btn-small" onclick="mudarNome()">✏️ Nome</button>
       ${isEnc() ? `<button class="btn-primary btn-small" onclick="entrarConsultor()">🔑 Entrar como consultor</button>`
-               : `<button class="btn-outline btn-small" onclick="definirPin()">🔑 ${cfg.pinHash ? 'Alterar' : 'Definir'} PIN</button><button class="btn-outline btn-small" onclick="virarEncarregada()">👩‍🌾 Usar como encarregada</button>`}
+               : `<button class="btn-outline btn-small" onclick="definirPin()">🔑 ${cfg.pinHash ? 'Alterar' : 'Definir'} PIN</button><button class="btn-outline btn-small" onclick="virarEncarregada()">🏠 Usar como aparelho da fazenda</button>`}
     </div>`;
 }
 function mudarNome(){ openForm('Nome de quem usa este aparelho', [{k:'nome', label:'Nome', v: cfg.usuario}], v => { if (!v.nome) return false; cfg.usuario = v.nome; persistCfg(); applyPerfil(); renderAcesso(); }); }
@@ -1495,8 +1496,10 @@ function definirPin(){
 }
 function virarEncarregada(){
   if (!cfg.pinHash) { alert('Defina um PIN primeiro, para poder voltar a ser consultor.'); return definirPin(); }
-  if (!confirm('Este aparelho passará a ter acesso de encarregada. Para voltar, será pedido o PIN. Continuar?')) return;
-  cfg.perfil = 'encarregada'; persistCfg(); applyPerfil(); renderAcesso();
+  if (!CAD.fazendas.length) { alert('Cadastre a fazenda primeiro.'); return; }
+  openForm('Usar como aparelho da fazenda', [{k:'faz', label:'Fazenda', type:'select', opts: CAD.fazendas.map(f => f.nome), v: CAD.fazendas[0].nome, hint:'Para voltar a ser consultor, será pedido o PIN.'}], v => {
+    cfg.perfil = 'encarregada'; cfg.fazendaVinc = v.faz; persistCfg(); applyPerfil(); renderAcesso();
+  });
 }
 function entrarConsultor(){
   if (!cfg.pinHash) { alert('Este aparelho ainda não recebeu dados do consultor. Peça o arquivo e use 📥 Receber dados.'); return; }
@@ -1519,20 +1522,35 @@ function primeiroAcesso(){
 }
 
 // ===== SINCRONIZAÇÃO POR ARQUIVO =====
-async function pacoteDados(){
-  return {app:'arpec-pastagem', versao:3, criado: new Date().toISOString(), de: cfg.usuario || '', perfil: cfg.perfil || 'consultor',
+async function pacoteDados(fazNome){
+  let avs = allEvaluations, lots = LOTS, cad = CAD, fotos = await allFotos(), alvo = null;
+  if (fazNome) {
+    const f = CAD.fazendas.find(x => x.nome === fazNome); alvo = f ? {id: f.id, nome: f.nome} : {nome: fazNome};
+    avs = allEvaluations.filter(e => norm(e.fazenda) === norm(fazNome));
+    lots = LOTS.filter(l => (f && l.fazendaId === f.id) || norm(l.fazenda) === norm(fazNome));
+    cad = {fazendas: f ? [f] : []};
+    const ids = new Set(avs.flatMap(e => e.fotoIds || []));
+    fotos = fotos.filter(ft => ids.has(ft.id));
+  }
+  return {app:'arpec-pastagem', versao:3, criado: new Date().toISOString(), de: cfg.usuario || '', perfil: cfg.perfil || 'consultor', fazendaAlvo: alvo,
     config: {resp: cfg.resp, empresa: cfg.empresa, logo: cfg.logo, manejo: cfg.manejo, pinHash: isEnc() ? undefined : cfg.pinHash},
-    avaliacoes: allEvaluations, fotos: await allFotos(), cadastro: CAD, lotacoes: LOTS, excluidos: getTombs()};
+    avaliacoes: avs, fotos, cadastro: cad, lotacoes: lots, excluidos: getTombs()};
 }
-function nomeArquivo(){ const n = norm(cfg.usuario || 'arpec').replace(/[^a-z0-9]+/g, '-'); const d = new Date(); return `arpec-dados-${n}-${todayISO()}-${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}.json`; }
+function nomeArquivo(faz){ const n = norm((faz ? faz + '-' : '') + (cfg.usuario || 'arpec')).replace(/[^a-z0-9]+/g, '-'); const d = new Date(); return `arpec-dados-${n}-${todayISO()}-${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}.json`; }
 async function enviarDados(){
-  if (!isEnc() && !cfg.pinHash && !confirm('Você ainda não definiu o PIN do consultor. Sem ele, a encarregada poderá entrar como consultor.\n\nEnviar mesmo assim? (Cancelar para definir o PIN em Ajustes)')) { showSettings(); return; }
-  const data = await pacoteDados(), nome = nomeArquivo();
+  if (!isEnc() && !cfg.pinHash && !confirm('Você ainda não definiu o PIN do consultor. Sem ele, o aparelho da fazenda poderá entrar como consultor.\n\nEnviar mesmo assim? (Cancelar para definir o PIN em Ajustes)')) { showSettings(); return; }
+  if (isEnc() || !CAD.fazendas.length) return enviarArquivo(isEnc() ? cfg.fazendaVinc : null);
+  const TODAS = 'Todas as fazendas (meu backup)';
+  openForm('Enviar dados', [{k:'faz', label:'Enviar para', type:'select', opts: [...CAD.fazendas.map(f => f.nome), TODAS], v: CAD.fazendas[0].nome, hint:'Escolhendo uma fazenda, vão só os dados dela (cadastro, avaliações, lotações e fotos).'}],
+    v => { closeModal(); enviarArquivo(v.faz === TODAS ? null : v.faz); }, true);
+}
+async function enviarArquivo(faz){
+  const data = await pacoteDados(isEnc() ? null : faz), nome = nomeArquivo(faz);
   const file = new File([JSON.stringify(data)], nome, {type: 'application/json'});
   const resumo = `${data.avaliacoes.length} avaliações, ${data.fotos.length} fotos, ${data.lotacoes.length} lotações`;
   try {
     if (navigator.canShare && navigator.canShare({files: [file]})) {
-      await navigator.share({files: [file], title: 'Dados ArPec', text: `Dados ArPec de ${cfg.usuario || ''} – ${resumo}. Abra o app ArPec e toque em 📥 Receber dados.`});
+      await navigator.share({files: [file], title: 'Dados ArPec', text: `Dados ArPec${faz ? ' – ' + faz : ''} (${cfg.usuario || ''}): ${resumo}. Abra o app ArPec e toque em 📥 Receber dados.`});
     } else { downloadFile(file, nome, 'application/json'); alert(`📥 Arquivo salvo em Downloads: ${nome}\nEnvie pelo WhatsApp como documento.`); }
     cfg.lastBackup = new Date().toISOString(); persistCfg(); updateHome();
   } catch(e) { if (e.name !== 'AbortError') { downloadFile(file, nome, 'application/json'); alert('Não foi possível abrir o compartilhamento. O arquivo foi salvo em Downloads.'); } }
@@ -1561,6 +1579,7 @@ async function receberDados(input){
   merge(LOTS, d.lotacoes, 'lot', 'lotN', 'lotA');
   if (d.cadastro && Array.isArray(d.cadastro.fazendas)) merge(CAD.fazendas, d.cadastro.fazendas, 'faz', 'fazN', 'fazA');
   for (const ft of (d.fotos || [])) { try { await putFoto(ft); } catch(e){} }
+  if (isEnc() && d.fazendaAlvo && d.fazendaAlvo.nome) cfg.fazendaVinc = d.fazendaAlvo.nome;
   // ajustes vêm só do consultor
   if (d.config && d.perfil !== 'encarregada') {
     if (Array.isArray(d.config.manejo) && d.config.manejo.length) cfg.manejo = d.config.manejo;
