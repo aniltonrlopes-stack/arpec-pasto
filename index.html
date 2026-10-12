@@ -157,7 +157,7 @@ body.enc .adm{display:none!important}
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último envio:</strong> <span id="lastBackup">nunca</span></p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Último recebimento:</strong> <span id="lastRecv">nunca</span></p>
-    <p class="hint">Versão 3.6 | Escala Técnica ArPec</p>
+    <p class="hint">Versão 3.7 | Escala Técnica ArPec</p>
   </div>
   <div class="section">
     <div class="section-title">🔄 Sincronizar</div>
@@ -929,6 +929,7 @@ let openUnitId = null;
 
 // ----- modal genérico -----
 function openForm(title, fields, onSave, manual){
+  $('mOk').textContent = 'Salvar';
   $('mTitle').textContent = title;
   $('mBody').innerHTML = fields.map(f => `<div class="form-group"><label>${esc(f.label)}</label>${
     f.type === 'select' ? `<select id="mf_${f.k}">${f.opts.map(o => `<option ${o === f.v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
@@ -1536,7 +1537,7 @@ async function pacoteDados(fazNome){
     config: {resp: cfg.resp, empresa: cfg.empresa, logo: cfg.logo, manejo: cfg.manejo, pinHash: isEnc() ? undefined : cfg.pinHash},
     avaliacoes: avs, fotos, cadastro: cad, lotacoes: lots, excluidos: getTombs()};
 }
-function nomeArquivo(faz){ const n = norm((faz ? faz + '-' : '') + (cfg.usuario || 'arpec')).replace(/[^a-z0-9]+/g, '-'); const d = new Date(); return `arpec-dados-${n}-${todayISO()}-${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}.json`; }
+function nomeArquivo(faz){ const n = norm((faz ? faz + '-' : '') + (cfg.usuario || 'arpec')).replace(/[^a-z0-9]+/g, '-'); const d = new Date(); return `arpec-dados-${n}-${todayISO()}-${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}.txt`; }
 async function enviarDados(){
   if (!isEnc() && !cfg.pinHash && !confirm('Você ainda não definiu o PIN do consultor. Sem ele, o aparelho da fazenda poderá entrar como consultor.\n\nEnviar mesmo assim? (Cancelar para definir o PIN em Ajustes)')) { showSettings(); return; }
   if (isEnc() || !CAD.fazendas.length) return enviarArquivo(isEnc() ? cfg.fazendaVinc : null);
@@ -1546,19 +1547,31 @@ async function enviarDados(){
 }
 async function enviarArquivo(faz){
   const data = await pacoteDados(isEnc() ? null : faz), nome = nomeArquivo(faz);
-  const file = new File([JSON.stringify(data)], nome, {type: 'application/json'});
+  const txt = JSON.stringify(data);
+  const file = new File([txt], nome, {type: 'text/plain'});
   const resumo = `${data.avaliacoes.length} avaliações, ${data.fotos.length} fotos, ${data.lotacoes.length} lotações`;
-  try {
-    if (navigator.canShare && navigator.canShare({files: [file]})) {
-      await navigator.share({files: [file], title: 'Dados ArPec', text: `Dados ArPec${faz ? ' – ' + faz : ''} (${cfg.usuario || ''}): ${resumo}. Abra o app ArPec e toque em 📥 Receber dados.`});
-    } else { downloadFile(file, nome, 'application/json'); alert(`📥 Arquivo salvo em Downloads: ${nome}\nEnvie pelo WhatsApp como documento.`); }
-    cfg.lastBackup = new Date().toISOString(); persistCfg(); updateHome();
-  } catch(e) { if (e.name !== 'AbortError') { downloadFile(file, nome, 'application/json'); alert('Não foi possível abrir o compartilhamento. O arquivo foi salvo em Downloads.'); } }
+  const mb = (txt.length / 1048576).toFixed(1);
+  const podeShare = !!(navigator.canShare && navigator.canShare({files: [file]}));
+  const marcar = () => { cfg.lastBackup = new Date().toISOString(); persistCfg(); updateHome(); };
+  $('mTitle').textContent = '📤 Arquivo pronto';
+  $('mBody').innerHTML = `<p style="font-size:.92rem;margin-bottom:6px"><b>${esc(faz || 'Todas as fazendas')}</b></p>
+    <p class="hint" style="margin-bottom:10px">${resumo} · ${mb} MB<br>${esc(nome)}</p>
+    ${podeShare ? '' : '<p class="hint" style="margin-bottom:10px">Este aparelho não permite compartilhar direto. O arquivo será salvo em Downloads: no WhatsApp, toque no clipe → Documento → Downloads.</p>'}
+    <button class="btn-outline" style="width:100%;margin-bottom:10px" id="mSalvar">💾 Salvar em Downloads</button>`;
+  $('mOk').textContent = podeShare ? '📲 Compartilhar' : '💾 Salvar';
+  $('mSalvar').onclick = () => { downloadFile(file, nome, 'text/plain'); marcar(); closeModal(); alert(`Arquivo salvo em Downloads:\n${nome}\n\nNo WhatsApp: clipe 📎 → Documento → Downloads.`); };
+  $('mOk').onclick = () => {
+    if (!podeShare) return $('mSalvar').onclick();
+    navigator.share({files: [file], title: 'Dados ArPec', text: `Dados ArPec${faz ? ' – ' + faz : ''}. Abra o app ArPec e toque em 📥 Receber dados.`})
+      .then(() => { marcar(); closeModal(); })
+      .catch(e => { if (e.name === 'AbortError') return; $('mSalvar').onclick(); });
+  };
+  $('modal').classList.add('open');
 }
 const upd = x => x.atualizadoEm || x.timestamp || (typeof x.id === 'number' ? new Date(x.id).toISOString() : '');
 async function receberDados(input){
   const file = input.files[0]; input.value = ''; if (!file) return;
-  let d; try { d = JSON.parse(await file.text()); } catch(e) { alert('Arquivo inválido. Escolha o arquivo .json do ArPec.'); return; }
+  let d; try { d = JSON.parse(await file.text()); } catch(e) { alert('Arquivo inválido. Escolha o arquivo arpec-dados (.txt ou .json).'); return; }
   const avs = Array.isArray(d) ? d : d.avaliacoes;
   if (!Array.isArray(avs)) { alert('Este arquivo não é do ArPec.'); return; }
   if (!confirm(`Receber dados${d.de ? ' de ' + d.de : ''}${d.criado ? ' (' + new Date(d.criado).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) + ')' : ''}?\n\n${avs.length} avaliações · ${(d.lotacoes||[]).length} lotações · ${(d.cadastro?.fazendas||[]).length} fazendas no cadastro\n\nO app junta com o que já existe aqui, sem duplicar.`)) return;
