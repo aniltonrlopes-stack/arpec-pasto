@@ -66,6 +66,8 @@ textarea{resize:vertical;min-height:80px}
 .install-banner{display:none;background:#e8f2e8;border:1px solid var(--primary-light);padding:12px;border-radius:6px;margin-bottom:12px;font-size:.88rem}
 .logo-prev{max-height:70px;max-width:200px;display:block;margin:8px 0;border:1px solid var(--border);padding:4px;background:#fff}
 #printArea{display:none}
+body.enc .adm{display:none!important}
+.who{display:inline-block;margin-top:3px;font-size:.72rem;background:rgba(255,255,255,.2);padding:1px 7px;border-radius:10px}
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:flex-end;justify-content:center;z-index:50}
 .modal.open{display:flex}
 .modal-box{background:#fff;width:100%;max-width:500px;border-radius:12px 12px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom));max-height:90vh;overflow:auto}
@@ -127,7 +129,7 @@ textarea{resize:vertical;min-height:80px}
 <body>
 <header>
   <img id="hdrLogo" alt="" style="display:none">
-  <div><h1>ArPec Condição de Pastagem</h1><p>Avaliação off-line para campo</p></div>
+  <div><h1>ArPec Condição de Pastagem</h1><p>Avaliação off-line para campo</p><span class="who" id="hdrWho" onclick="showSettings()"></span></div>
 </header>
 
 <div class="container">
@@ -153,15 +155,19 @@ textarea{resize:vertical;min-height:80px}
   <div class="section">
     <div class="section-title">Informações</div>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
-    <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último backup:</strong> <span id="lastBackup">nunca</span></p>
-    <p class="hint">Versão 3.4 | Escala Técnica ArPec</p>
+    <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último envio:</strong> <span id="lastBackup">nunca</span></p>
+    <p style="font-size:.9rem;margin-bottom:8px"><strong>Último recebimento:</strong> <span id="lastRecv">nunca</span></p>
+    <p class="hint">Versão 3.5 | Escala Técnica ArPec</p>
   </div>
   <div class="section">
-    <div class="section-title">Exportar</div>
+    <div class="section-title">🔄 Sincronizar</div>
+    <p class="hint" style="margin-bottom:8px">Troque os dados com o consultor/encarregada pelo WhatsApp. O app junta tudo sem duplicar.</p>
     <div class="row">
-      <button class="btn-primary btn-small" onclick="exportCSV()">📊 Planilha CSV</button>
-      <button class="btn-primary btn-small" onclick="exportBackup()">💾 Backup completo</button>
+      <button class="btn-primary btn-small" onclick="enviarDados()">📤 Enviar dados</button>
+      <button class="btn-secondary btn-small" onclick="document.getElementById('recvInput').click()">📥 Receber dados</button>
     </div>
+    <input type="file" id="recvInput" style="display:none" onchange="receberDados(this)">
+    <button class="btn-outline btn-small" style="width:100%;margin-top:8px" onclick="exportCSV()">📊 Exportar planilha CSV</button>
   </div>
 </div>
 
@@ -288,7 +294,7 @@ textarea{resize:vertical;min-height:80px}
   <button class="btn-primary" style="width:100%;margin-bottom:8px" onclick="printEvaluation()">📄 Gerar relatório PDF</button>
   <div class="row">
     <button class="btn-outline btn-small" onclick="editEvaluation()">✏️ Editar</button>
-    <button class="btn-danger btn-small" onclick="deleteEvaluation()">🗑️ Excluir</button>
+    <button class="btn-danger btn-small adm" onclick="deleteEvaluation()">🗑️ Excluir</button>
   </div>
 </div>
 
@@ -296,6 +302,10 @@ textarea{resize:vertical;min-height:80px}
 <div id="settingsScreen" class="screen">
   <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="showHome()">← Voltar</button>
   <div class="section">
+    <div class="section-title">👤 Acesso deste aparelho</div>
+    <div id="acessoBox"></div>
+  </div>
+  <div class="section adm">
     <div class="section-title">Relatórios</div>
     <div class="form-group"><label>Responsável técnico (assinatura)</label><input type="text" id="cfgResp"></div>
     <div class="form-group"><label>Empresa</label><input type="text" id="cfgEmpresa"></div>
@@ -310,16 +320,16 @@ textarea{resize:vertical;min-height:80px}
     <button class="btn-primary" style="width:100%" onclick="saveSettings()">Salvar ajustes</button>
   </div>
   <div class="section">
-    <div class="section-title">Backup</div>
-    <p class="hint" style="margin-bottom:10px">O backup guarda avaliações, fotos, logo e ajustes num único arquivo. Faça com frequência e envie para o computador ou Drive. Para passar para outro celular, use "Restaurar".</p>
+    <div class="section-title">Backup e sincronização</div>
+    <p class="hint" style="margin-bottom:10px">O mesmo arquivo serve de backup e para trocar dados entre aparelhos: avaliações, fotos, cadastro, lotações e referências. Guarde uma cópia no Drive de vez em quando.</p>
     <div class="row">
-      <button class="btn-primary btn-small" onclick="exportBackup()">💾 Fazer backup</button>
-      <button class="btn-outline btn-small" onclick="document.getElementById('restoreInput').click()">♻️ Restaurar</button>
+      <button class="btn-primary btn-small" onclick="enviarDados()">📤 Enviar / backup</button>
+      <button class="btn-outline btn-small" onclick="document.getElementById('recvInput').click()">📥 Receber / restaurar</button>
     </div>
-    <input type="file" id="restoreInput" accept=".json,application/json" style="display:none" onchange="importBackup(this)">
+    <button class="btn-outline btn-small" style="width:100%;margin-top:8px" onclick="exportBackup()">💾 Só salvar arquivo no aparelho</button>
     <p class="hint" style="margin-top:10px">Uso do armazenamento: <span id="storageInfo">-</span></p>
   </div>
-  <div class="section">
+  <div class="section adm">
     <div class="section-title">Referências de altura (cm)</div>
     <p class="hint" style="margin-bottom:8px">Usadas na avaliação. A forrageira é reconhecida pelas palavras-chave (ex.: "marandu" → Braquiárias). Tolerância de ±10% no rotacionado.</p>
     <div id="manejoList"></div>
@@ -342,11 +352,12 @@ textarea{resize:vertical;min-height:80px}
   <div class="section">
     <div class="section-title">Cadastro de Áreas</div>
     <p class="hint" style="margin-bottom:10px">Fazenda → <b>Módulos</b> (com piquetes) e <b>Setores</b> (com pastos).</p>
-    <div class="row">
+    <p class="hint" id="cadSoLeitura" style="display:none;margin-bottom:8px">🔒 Somente consulta. Alterações no cadastro são feitas pelo consultor.</p>
+    <div class="row adm">
       <button class="btn-primary btn-small" onclick="addFazenda()">➕ Fazenda</button>
       <button class="btn-outline btn-small" onclick="document.getElementById('impInput').click()">📥 Importar planilha</button>
     </div>
-    <button class="btn-outline btn-small" style="width:100%;margin-top:8px" onclick="baixarModelo()">📄 Baixar planilha modelo</button>
+    <button class="btn-outline btn-small adm" style="width:100%;margin-top:8px" onclick="baixarModelo()">📄 Baixar planilha modelo</button>
     <input type="file" id="impInput" accept=".xlsx,.csv,.txt,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" style="display:none" onchange="importarPlanilha(this)">
   </div>
   <ul class="history-list" id="fazList"></ul>
@@ -358,11 +369,11 @@ textarea{resize:vertical;min-height:80px}
   <div class="section">
     <div class="section-title" id="fazTitle">Fazenda</div>
     <div id="fazResumo" class="hint"></div>
-    <div class="row" style="margin-top:10px">
+    <div class="row adm" style="margin-top:10px">
       <button class="btn-primary btn-small" onclick="addUnidade('Módulo')">➕ Módulo</button>
       <button class="btn-primary btn-small" onclick="addUnidade('Setor')">➕ Setor</button>
     </div>
-    <div class="row" style="margin-top:8px">
+    <div class="row adm" style="margin-top:8px">
       <button class="btn-outline btn-small" onclick="renameFazenda()">✏️ Renomear</button>
       <button class="btn-danger btn-small" onclick="delFazenda()">🗑️ Excluir fazenda</button>
     </div>
@@ -520,24 +531,25 @@ function applyLogo(){
   if (cfg.logo) { h.src = p.src = cfg.logo; h.style.display = p.style.display = 'block'; }
   else { h.style.display = p.style.display = 'none'; }
 }
-async function setLogo(input){
+async function setLogo(input){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const f = input.files[0]; if (!f) return;
   cfg.logo = await compressImage(f, 600, 0.9); await kvSet('logo', cfg.logo); applyLogo(); input.value = '';
 }
-async function removeLogo(){ cfg.logo = null; await kvSet('logo', null); applyLogo(); }
-function saveSettings(){
+async function removeLogo(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; } cfg.logo = null; await kvSet('logo', null); applyLogo(); }
+function saveSettings(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   cfg.resp = $('cfgResp').value.trim(); cfg.empresa = $('cfgEmpresa').value.trim();
   persistCfg();
   alert('✅ Ajustes salvos');
 }
-function persistCfg(){ localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup, manejo: cfg.manejo})); }
+function persistCfg(){ localStorage.setItem(LS_CFG, JSON.stringify({resp: cfg.resp, empresa: cfg.empresa, lastBackup: cfg.lastBackup, lastRecv: cfg.lastRecv, manejo: cfg.manejo, usuario: cfg.usuario, perfil: cfg.perfil, pinHash: cfg.pinHash})); }
 
 // ===== ARMAZENAMENTO =====
 function loadEvaluations(){ try { allEvaluations = JSON.parse(localStorage.getItem(LS_EVAL)) || []; } catch(e){ allEvaluations = []; } }
 function saveToStorage(){ localStorage.setItem(LS_EVAL, JSON.stringify(allEvaluations)); updateHome(); }
 function updateHome(){
   $('totalCount').textContent = allEvaluations.length;
-  $('lastBackup').textContent = cfg.lastBackup ? new Date(cfg.lastBackup).toLocaleDateString('pt-BR') : 'nunca';
+  $('lastBackup').textContent = cfg.lastBackup ? new Date(cfg.lastBackup).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) : 'nunca';
+  $('lastRecv').textContent = cfg.lastRecv ? new Date(cfg.lastRecv).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) : 'nunca';
 }
 
 // ===== NAVEGAÇÃO =====
@@ -545,7 +557,7 @@ function showScreen(id){ document.querySelectorAll('.screen').forEach(s => s.cla
 function showHome(){ updateHome(); showScreen('homeScreen'); }
 function showHistory(){ renderHistory(); showScreen('historyScreen'); }
 async function showSettings(){
-  $('cfgResp').value = cfg.resp || ''; $('cfgEmpresa').value = cfg.empresa || ''; renderManejo();
+  $('cfgResp').value = cfg.resp || ''; $('cfgEmpresa').value = cfg.empresa || ''; renderManejo(); renderAcesso();
   showScreen('settingsScreen');
   if (navigator.storage && navigator.storage.estimate) {
     const e = await navigator.storage.estimate();
@@ -627,6 +639,7 @@ async function saveEvaluation(){
   ev.data = $('evalDate').value;
   FIELDS.forEach(f => ev[f] = $(f).value.trim());
   ev.ratings = {...ratings}; ev.nota = nota; ev.vazio = $('vazio').checked;
+  ev.atualizadoEm = new Date().toISOString(); if (!ev.autor) ev.autor = cfg.usuario || ''; else if (ev.autor !== cfg.usuario) ev.editadoPor = cfg.usuario || '';
   if (ev.vazio) { ev.cab = ''; ev.pesoMedioAv = ''; ev.lotacao = '0'; }
   ev.problemas = [...document.querySelectorAll('input[name="problema"]:checked')].map(cb => cb.value);
   const AL = alturaInfo(); ev.sistema = $('sistema').value; ev.momento = ev.sistema === 'Rotacionado' ? $('momento').value : '';
@@ -665,9 +678,12 @@ async function editEvaluation(){
 }
 
 async function deleteEvaluation(){
+  if (!adm()) return;
   if (!confirm('Excluir esta avaliação e suas fotos?')) return;
   const ev = allEvaluations.find(e => e.id === currentDetailId);
   if (ev) for (const id of (ev.fotoIds || [])) await delFoto(id);
+  if (!adm()) return;
+  tomb('eval', currentDetailId);
   allEvaluations = allEvaluations.filter(e => e.id !== currentDetailId);
   saveToStorage(); showHistory();
 }
@@ -717,7 +733,7 @@ function renderHistory(){
         <div><div class="history-item-title">${esc(e.fazenda)} – ${esc(e.piquete)}</div><div class="history-item-date">${fmtDate(e.data)} · ${classify(e.nota)}${(e.fotoIds||[]).length ? ' · 📷 ' + e.fotoIds.length : ''}</div></div>
         <div class="history-item-note">${String(e.nota).replace('.', ',')}</div>
       </div>
-      <div class="history-item-details">${esc(e.forrageira)} | ${esc(e.modulo)}</div>
+      <div class="history-item-details">${esc(e.forrageira)} | ${esc(e.modulo)}${e.autor ? ' · 👤 ' + esc(e.autor) : ''}</div>
     </li>`).join('');
 }
 async function showDetail(id){
@@ -726,7 +742,7 @@ async function showDetail(id){
   $('detailNota').textContent = String(e.nota).replace('.', ',');
   $('detailClass').textContent = classify(e.nota);
   const rows = [
-    ['Data', fmtDate(e.data)], ['Fazenda', e.fazenda], ['Módulo', e.modulo], ['Piquete', e.piquete],
+    ['Data', fmtDate(e.data)], ...(e.autor ? [['Avaliado por', e.autor + (e.editadoPor ? ` (editado por ${e.editadoPor})` : '')]] : []), ['Fazenda', e.fazenda], ['Módulo', e.modulo], ['Piquete', e.piquete],
     ['Área (ha)', e.area ? num(e.area) : '-'], ['Forrageira', e.forrageira], ['Categoria', e.categoria || '-'],
     ['Animais', e.vazio ? 'Sem animais (descanso)' : (P(e.cab) > 0 ? `${e.cab} cab · ${num(e.pesoMedioAv,0)} kg` : 'não informado')],
     ['Lotação (UA/ha)', e.lotacao ? num(e.lotacao) : '-'],
@@ -769,6 +785,7 @@ async function printEvaluation(){
     <h3>Identificação</h3>
     <table>
       <tr><th>Fazenda</th><td>${esc(e.fazenda)}</td><th>Data</th><td>${fmtDate(e.data)}</td></tr>
+      ${e.autor ? `<tr><th>Avaliado por</th><td colspan="3">${esc(e.autor)}${e.editadoPor ? ` (editado por ${esc(e.editadoPor)})` : ''}</td></tr>` : ''}
       <tr><th>Módulo / Área</th><td>${esc(e.modulo)}</td><th>Piquete</th><td>${esc(e.piquete)}</td></tr>
       <tr><th>Forrageira</th><td>${esc(e.forrageira)}</td><th>Área (ha)</th><td>${e.area ? num(e.area) : '-'}</td></tr>
       <tr><th>Categoria / animais</th><td>${esc(e.categoria || '-')}${e.vazio ? ' · sem animais (descanso)' : (P(e.cab) > 0 ? ` · ${e.cab} cab · ${num(e.pesoMedioAv,0)} kg` : '')}</td><th>Lotação (UA/ha)</th><td>${e.lotacao ? num(e.lotacao) : '-'}</td></tr>
@@ -833,9 +850,8 @@ function exportCSV(){
   downloadFile('\ufeff' + H.map(q).join(';') + '\n' + rows.join('\n'), `arpec-avaliacoes-${todayISO()}.csv`, 'text/csv;charset=utf-8');
 }
 async function exportBackup(){
-  const fotos = await allFotos();
-  const data = {app:'arpec-pastagem', versao:2, criado: new Date().toISOString(), config:{resp:cfg.resp, empresa:cfg.empresa, logo:cfg.logo}, avaliacoes: allEvaluations, fotos, cadastro: CAD, lotacoes: LOTS};
-  downloadFile(JSON.stringify(data), `arpec-backup-${todayISO()}.json`, 'application/json');
+  const data = await pacoteDados();
+  downloadFile(JSON.stringify(data), nomeArquivo(), 'application/json'); const fotos = data.fotos;
   cfg.lastBackup = new Date().toISOString(); persistCfg(); updateHome();
   alert(`💾 Backup gerado: ${allEvaluations.length} avaliações, ${fotos.length} fotos, ${CAD.fazendas.length} fazendas cadastradas, ${LOTS.length} lotações.\nEnvie o arquivo para o computador ou Drive.`);
 }
@@ -868,7 +884,7 @@ function loadCad(){
   try { CAD = JSON.parse(localStorage.getItem(LS_CAD)) || {fazendas: []}; } catch(e){ CAD = {fazendas: []}; }
   try { LOTS = JSON.parse(localStorage.getItem(LS_LOT)) || []; } catch(e){ LOTS = []; }
 }
-function saveCad(){ localStorage.setItem(LS_CAD, JSON.stringify(CAD)); }
+function saveCad(raw){ if (!raw) { const t = new Date().toISOString(); CAD.fazendas.forEach(f => f.atualizadoEm = t); } localStorage.setItem(LS_CAD, JSON.stringify(CAD)); }
 function saveLots(){ localStorage.setItem(LS_LOT, JSON.stringify(LOTS)); }
 const P = v => { if (v === '' || v == null) return NaN; if (typeof v === 'number') return v; let t = String(v).trim().replace(/\s/g,''); if (t.includes(',')) t = t.replace(/\./g,'').replace(',', '.'); return parseFloat(t); };
 const r2 = v => Math.round(v * 100) / 100;
@@ -903,8 +919,8 @@ function openFazenda(id){
       <summary><div><span class="tag ${u.tipo === 'Setor' ? 'setor' : ''}">${u.tipo}</span><b>${esc(u.nome)}</b><br><span class="hint">${u.areas.length} ${filho(u.tipo).toLowerCase()}s · ${num(uniArea(u))} ha · AEE ${num(uniAee(u))} ha</span></div><span>▾</span></summary>
       <div class="unit-body">
         ${u.areas.map(a => { const le = lastEvalFor(f, u, a); return `<div class="arow"><div>${esc(a.nome)}<small>${num(a.area)} ha · AEE ${num(aeeOf(a))} ha${a.forrageira ? ' · ' + esc(a.forrageira) : ''}</small>${le ? `<small>Últ. avaliação: ${String(le.nota).replace('.', ',')} (${classify(le.nota)}) em ${fmtDate(le.data)}</small>` : '<small>Sem avaliação</small>'}</div>
-          <div class="acts"><button onclick="editArea('${u.id}','${a.id}')">✏️</button><button onclick="delArea('${u.id}','${a.id}')">🗑️</button></div></div>`; }).join('')}
-        <div class="row" style="margin-top:8px"><button class="btn-outline btn-small" onclick="editArea('${u.id}')">➕ ${filho(u.tipo)}</button><button class="btn-outline btn-small" onclick="editUnidade('${u.id}')">✏️ ${u.tipo}</button><button class="btn-danger btn-small" style="flex:none" onclick="delUnidade('${u.id}')">🗑️</button></div>
+          <div class="acts adm"><button onclick="editArea('${u.id}','${a.id}')">✏️</button><button onclick="delArea('${u.id}','${a.id}')">🗑️</button></div></div>`; }).join('')}
+        <div class="row adm" style="margin-top:8px"><button class="btn-outline btn-small" onclick="editArea('${u.id}')">➕ ${filho(u.tipo)}</button><button class="btn-outline btn-small" onclick="editUnidade('${u.id}')">✏️ ${u.tipo}</button><button class="btn-danger btn-small" style="flex:none" onclick="delUnidade('${u.id}')">🗑️</button></div>
       </div>
     </details>`).join('')).join('') || `<div class="section hint">Nenhum módulo ou setor ainda.</div>`;
   showScreen('fazScreen');
@@ -912,35 +928,35 @@ function openFazenda(id){
 let openUnitId = null;
 
 // ----- modal genérico -----
-function openForm(title, fields, onSave){
+function openForm(title, fields, onSave, manual){
   $('mTitle').textContent = title;
   $('mBody').innerHTML = fields.map(f => `<div class="form-group"><label>${esc(f.label)}</label>${
     f.type === 'select' ? `<select id="mf_${f.k}">${f.opts.map(o => `<option ${o === f.v ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`
-    : `<input id="mf_${f.k}" type="${f.type || 'text'}" ${f.type === 'number' ? 'step="0.01" min="0" inputmode="decimal"' : ''} value="${esc(f.v ?? '')}" placeholder="${esc(f.ph || '')}" ${f.list ? `list="${f.list}"` : ''}>`
+    : `<input id="mf_${f.k}" type="${f.type || 'text'}" ${f.type === 'number' ? 'step="0.01" min="0" inputmode="decimal"' : f.type === 'password' ? 'inputmode="numeric" autocomplete="off"' : ''} value="${esc(f.v ?? '')}" placeholder="${esc(f.ph || '')}" ${f.list ? `list="${f.list}"` : ''}>`
   }${f.hint ? `<span class="hint">${esc(f.hint)}</span>` : ''}</div>`).join('') +
   `<datalist id="dlForr">${[...new Set(CAD.fazendas.flatMap(f => f.unidades.flatMap(u => u.areas.map(a => a.forrageira))).filter(Boolean))].map(v => `<option value="${esc(v)}">`).join('')}</datalist>`;
-  $('mOk').onclick = () => { const vals = {}; fields.forEach(f => vals[f.k] = $('mf_' + f.k).value.trim()); if (onSave(vals) !== false) closeModal(); };
+  $('mOk').onclick = () => { const vals = {}; fields.forEach(f => vals[f.k] = $('mf_' + f.k).value.trim()); if (manual) onSave(vals); else if (onSave(vals) !== false) closeModal(); };
   $('modal').classList.add('open');
   setTimeout(() => { const first = $('mBody').querySelector('input'); if (first) first.focus(); }, 50);
 }
 function closeModal(){ $('modal').classList.remove('open'); }
 
-function addFazenda(){
+function addFazenda(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   openForm('Nova fazenda', [{k:'nome', label:'Nome da fazenda', ph:'ex: Fazenda São Sebastião'}], v => {
     if (!v.nome) { alert('Informe o nome'); return false; }
     const f = {id: uid(), nome: v.nome, unidades: []}; CAD.fazendas.push(f); saveCad(); openFazenda(f.id);
   });
 }
-function renameFazenda(){
+function renameFazenda(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const f = findFaz(curFazId);
   openForm('Renomear fazenda', [{k:'nome', label:'Nome', v:f.nome}], v => { if (!v.nome) return false; f.nome = v.nome; saveCad(); openFazenda(f.id); });
 }
-function delFazenda(){
+function delFazenda(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const f = findFaz(curFazId); if (!confirm(`Excluir "${f.nome}" e todo o cadastro de áreas dela?\n(As avaliações já feitas são mantidas.)`)) return;
-  CAD.fazendas = CAD.fazendas.filter(x => x.id !== f.id); saveCad(); showCadastro();
+  tomb('faz', f.id); CAD.fazendas = CAD.fazendas.filter(x => x.id !== f.id); saveCad(); showCadastro();
 }
 function grupoOpts(f){ return [...new Set(f.unidades.map(u => u.grupo).filter(Boolean))]; }
-function addUnidade(tipo){
+function addUnidade(tipo){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const f = findFaz(curFazId);
   openForm(`Novo ${tipo.toLowerCase()}`, [
     {k:'nome', label:`Nome do ${tipo.toLowerCase()}`, ph: tipo === 'Módulo' ? 'ex: Módulo A' : 'ex: Setor 1'},
@@ -950,7 +966,7 @@ function addUnidade(tipo){
     const u = {id: uid(), tipo, nome: v.nome, grupo: v.grupo, areas: []}; f.unidades.push(u); saveCad(); openUnitId = u.id; openFazenda(f.id);
   });
 }
-function editUnidade(uid_){
+function editUnidade(uid_){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const f = findFaz(curFazId), u = f.unidades.find(x => x.id === uid_);
   openForm(`Editar ${u.tipo.toLowerCase()}`, [
     {k:'nome', label:'Nome', v:u.nome},
@@ -958,12 +974,12 @@ function editUnidade(uid_){
     {k:'grupo', label:'Grupo / atividade', v:u.grupo || ''}
   ], v => { if (!v.nome) return false; Object.assign(u, v); saveCad(); openFazenda(f.id); });
 }
-function delUnidade(uid_){
+function delUnidade(uid_){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const f = findFaz(curFazId), u = f.unidades.find(x => x.id === uid_);
   if (!confirm(`Excluir ${u.tipo} "${u.nome}" e seus ${u.areas.length} ${filho(u.tipo).toLowerCase()}s?`)) return;
   f.unidades = f.unidades.filter(x => x.id !== uid_); saveCad(); openFazenda(f.id);
 }
-function editArea(uid_, aid){
+function editArea(uid_, aid){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const f = findFaz(curFazId), u = f.unidades.find(x => x.id === uid_), a = aid ? u.areas.find(x => x.id === aid) : null, nm = filho(u.tipo);
   openForm(a ? `Editar ${nm.toLowerCase()}` : `Novo ${nm.toLowerCase()} – ${u.nome}`, [
     {k:'nome', label:`Nome do ${nm.toLowerCase()}`, v:a?.nome},
@@ -980,7 +996,7 @@ function editArea(uid_, aid){
     saveCad(); openUnitId = u.id; openFazenda(f.id);
   });
 }
-function delArea(uid_, aid){
+function delArea(uid_, aid){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const f = findFaz(curFazId), u = f.unidades.find(x => x.id === uid_), a = u.areas.find(x => x.id === aid);
   if (!confirm(`Excluir "${a.nome}"?`)) return;
   u.areas = u.areas.filter(x => x.id !== aid); saveCad(); openUnitId = u.id; openFazenda(f.id);
@@ -1083,7 +1099,7 @@ function sheetToRecords(sheet){
   }
   return recs.length ? recs : null;
 }
-async function importarPlanilha(input){
+async function importarPlanilha(input){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; }
   const file = input.files[0]; input.value = ''; if (!file) return;
   let sheets;
   try {
@@ -1264,16 +1280,16 @@ function saveLot(){
   for (const u of f.unidades) for (const a of u.areas) for (const l of (lotOcup[a.id] || []).filter(lotAtivo)) if (!(P(l.n) > 0 && P(l.peso) > 0)) falta.push(`${u.nome} – ${a.nome}`);
   if (falta.length) { alert(`Informe nº de cabeças e peso médio em:\n\n• ${[...new Set(falta)].join('\n• ')}`); return; }
   const ocup = {}; Object.entries(lotOcup).forEach(([k, ls]) => { const v = ls.filter(lotAtivo); if (v.length) ocup[k] = v; });
-  LOTS.push({id: Date.now(), data: $('lotData').value || todayISO(), fazendaId: f.id, fazenda: f.nome, reforma: R.reforma, alagado: R.alagado, ocup, res: R});
+  LOTS.push({id: Date.now(), atualizadoEm: new Date().toISOString(), autor: cfg.usuario || '', data: $('lotData').value || todayISO(), fazendaId: f.id, fazenda: f.nome, reforma: R.reforma, alagado: R.alagado, ocup, res: R});
   saveLots(); clearDraft(f.id); renderLotHist(); alert(`✅ Lotação salva: ${num(R.lotFaz)} UA/ha`);
 }
 function renderLotHist(){
   const fid = $('lotFaz').value, ls = LOTS.filter(l => l.fazendaId === fid).sort((a,b) => b.data.localeCompare(a.data) || b.id - a.id);
   $('lotHist').innerHTML = ls.length ? ls.map(l => `<li class="history-item" style="cursor:default">
     <div class="history-item-header"><div><div class="history-item-title">${fmtDate(l.data)}</div><div class="history-item-date">${l.res.cab} cab · ${num(l.res.ua,1)} UA · útil ${num(l.res.util)} ha</div></div><div class="history-item-note">${num(l.res.lotFaz)}</div></div>
-    <div class="row" style="margin-top:6px"><button class="btn-outline btn-small" onclick="printLot(${l.id})">📄 PDF</button><button class="btn-outline btn-small" onclick="delLot(${l.id})">🗑️ Excluir</button></div></li>`).join('') : '<div class="hint">Nenhuma lotação salva para esta fazenda.</div>';
+    <div class="row" style="margin-top:6px"><button class="btn-outline btn-small" onclick="printLot(${l.id})">📄 PDF</button><button class="btn-outline btn-small adm" onclick="delLot(${l.id})">🗑️ Excluir</button></div></li>`).join('') : '<div class="hint">Nenhuma lotação salva para esta fazenda.</div>';
 }
-function delLot(id){ if (!confirm('Excluir esta lotação?')) return; LOTS = LOTS.filter(l => l.id !== id); saveLots(); renderLotHist(); }
+function delLot(id){ if (!adm()) return; if (!confirm('Excluir esta lotação?')) return; tomb('lot', id); LOTS = LOTS.filter(l => l.id !== id); saveLots(); renderLotHist(); }
 function printLotAtual(){
   const f = findFaz($('lotFaz').value), R = calcLot();
   if ($('lotReforma').value === '' || $('lotAlagado').value === '') { alert('Informe os hectares em reforma e alagados (use 0 se não houver).'); return; }
@@ -1385,9 +1401,9 @@ function renderManejo(){
 function readManejoForm(){
   document.querySelectorAll('#manejoList [data-k]').forEach(el => { const m = cfg.manejo[+el.dataset.i]; const k = el.dataset.k; m[k] = /^[cr]/.test(k) && k !== 'chaves' ? P(el.value) : el.value.trim(); });
 }
-function addEspecie(){ readManejoForm(); cfg.manejo.push({nome:'Nova espécie', chaves:'', cDim:'', cMan:'', cAum:'', rEnt:'', rSai:''}); renderManejo(); }
-function delEspecie(i){ readManejoForm(); if (!confirm(`Remover "${cfg.manejo[i].nome}"?`)) return; cfg.manejo.splice(i, 1); renderManejo(); }
-function saveManejo(){ readManejoForm(); cfg.manejo = cfg.manejo.filter(m => m.nome); persistCfg(); renderManejo(); alert('✅ Referências salvas'); }
+function addEspecie(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; } readManejoForm(); cfg.manejo.push({nome:'Nova espécie', chaves:'', cDim:'', cMan:'', cAum:'', rEnt:'', rSai:''}); renderManejo(); }
+function delEspecie(i){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; } readManejoForm(); if (!confirm(`Remover "${cfg.manejo[i].nome}"?`)) return; cfg.manejo.splice(i, 1); renderManejo(); }
+function saveManejo(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; } readManejoForm(); cfg.manejo = cfg.manejo.filter(m => m.nome); persistCfg(); renderManejo(); alert('✅ Referências salvas'); }
 // lê a aba de manejo (alturas) de uma planilha importada
 function sheetToManejo(sheets){
   const found = {};
@@ -1442,6 +1458,123 @@ function puxarDasAvaliacoes(){
     `\n\nConfira, informe reforma e alagado e toque em Salvar.`);
 }
 
+
+// ===== PERFIS / ACESSO =====
+const LS_TOMB = 'arpecExcluidos';
+const isEnc = () => cfg.perfil === 'encarregada';
+function adm(){ if (isEnc()) { alert('🔒 Somente o consultor pode fazer isso.'); return false; } return true; }
+function getTombs(){ try { return JSON.parse(localStorage.getItem(LS_TOMB)) || {eval:{}, lot:{}, faz:{}}; } catch(e){ return {eval:{}, lot:{}, faz:{}}; } }
+function tomb(tipo, id){ const t = getTombs(); (t[tipo] = t[tipo] || {})[id] = new Date().toISOString(); localStorage.setItem(LS_TOMB, JSON.stringify(t)); }
+async function sha(txt){ const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('arpec:' + txt)); return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join(''); }
+function applyPerfil(){
+  document.body.classList.toggle('enc', isEnc());
+  $('hdrWho').textContent = `👤 ${cfg.usuario || 'sem nome'} · ${isEnc() ? 'Encarregada' : 'Consultor'}`;
+  const cs = $('cadSoLeitura'); if (cs) cs.style.display = isEnc() ? 'block' : 'none';
+}
+function renderAcesso(){
+  const box = $('acessoBox'); if (!box) return;
+  box.innerHTML = `<p style="font-size:.9rem"><b>${esc(cfg.usuario || '-')}</b> · perfil <b>${isEnc() ? 'Encarregada' : 'Consultor'}</b></p>
+    <p class="hint" style="margin:4px 0 10px">${isEnc() ? 'Pode lançar e editar avaliações e lotações. Excluir, alterar cadastro, referências e ajustes é com o consultor.' : 'Acesso total.' + (cfg.pinHash ? ' PIN definido ✅' : ' ⚠️ Defina um PIN antes de enviar dados para a encarregada.')}</p>
+    <div class="row" style="flex-wrap:wrap">
+      <button class="btn-outline btn-small" onclick="mudarNome()">✏️ Nome</button>
+      ${isEnc() ? `<button class="btn-primary btn-small" onclick="entrarConsultor()">🔑 Entrar como consultor</button>`
+               : `<button class="btn-outline btn-small" onclick="definirPin()">🔑 ${cfg.pinHash ? 'Alterar' : 'Definir'} PIN</button><button class="btn-outline btn-small" onclick="virarEncarregada()">👩‍🌾 Usar como encarregada</button>`}
+    </div>`;
+}
+function mudarNome(){ openForm('Nome de quem usa este aparelho', [{k:'nome', label:'Nome', v: cfg.usuario}], v => { if (!v.nome) return false; cfg.usuario = v.nome; persistCfg(); applyPerfil(); renderAcesso(); }); }
+function definirPin(){
+  openForm(cfg.pinHash ? 'Alterar PIN do consultor' : 'Definir PIN do consultor', [
+    ...(cfg.pinHash ? [{k:'atual', label:'PIN atual', type:'password'}] : []),
+    {k:'pin', label:'Novo PIN (4 a 8 números)', type:'password'}, {k:'pin2', label:'Repita o novo PIN', type:'password'}
+  ], async v => {
+    if (cfg.pinHash && await sha(v.atual) !== cfg.pinHash) { alert('PIN atual incorreto'); return; }
+    if (!/^\d{4,8}$/.test(v.pin)) { alert('Use de 4 a 8 números'); return; }
+    if (v.pin !== v.pin2) { alert('Os PINs não conferem'); return; }
+    cfg.pinHash = await sha(v.pin); persistCfg(); renderAcesso(); closeModal(); alert('✅ PIN definido. Guarde bem: ele é pedido para entrar como consultor.');
+  }, true);
+}
+function virarEncarregada(){
+  if (!cfg.pinHash) { alert('Defina um PIN primeiro, para poder voltar a ser consultor.'); return definirPin(); }
+  if (!confirm('Este aparelho passará a ter acesso de encarregada. Para voltar, será pedido o PIN. Continuar?')) return;
+  cfg.perfil = 'encarregada'; persistCfg(); applyPerfil(); renderAcesso();
+}
+function entrarConsultor(){
+  if (!cfg.pinHash) { alert('Este aparelho ainda não recebeu dados do consultor. Peça o arquivo e use 📥 Receber dados.'); return; }
+  openForm('Entrar como consultor', [{k:'pin', label:'PIN do consultor', type:'password'}], async v => {
+    if (await sha(v.pin) !== cfg.pinHash) { alert('PIN incorreto'); return; }
+    cfg.perfil = 'consultor'; persistCfg(); applyPerfil(); renderAcesso(); closeModal();
+  }, true);
+}
+function primeiroAcesso(){
+  if (cfg.perfil) return;
+  const temDados = allEvaluations.length || CAD.fazendas.length || LOTS.length;
+  if (temDados) { cfg.perfil = 'consultor'; cfg.usuario = cfg.usuario || (cfg.resp || 'Consultor').split(/[–-]/)[0].trim(); persistCfg();
+    allEvaluations.forEach(e => { if (!e.autor) e.autor = cfg.usuario; }); LOTS.forEach(l => { if (!l.autor) l.autor = cfg.usuario; }); saveToStorage(); saveLots(); return; }
+  cfg.perfil = 'encarregada'; persistCfg();
+  openForm('Bem-vindo(a) ao ArPec', [{k:'nome', label:'Seu nome', ph:'ex: Maria', hint:'Aparece nas avaliações que você lançar.'}], v => {
+    if (!v.nome) { alert('Informe seu nome'); return false; }
+    cfg.usuario = v.nome; persistCfg(); applyPerfil();
+    setTimeout(() => alert('Para começar, receba o arquivo de dados enviado pelo consultor (pelo WhatsApp) e toque em 📥 Receber dados.'), 200);
+  });
+}
+
+// ===== SINCRONIZAÇÃO POR ARQUIVO =====
+async function pacoteDados(){
+  return {app:'arpec-pastagem', versao:3, criado: new Date().toISOString(), de: cfg.usuario || '', perfil: cfg.perfil || 'consultor',
+    config: {resp: cfg.resp, empresa: cfg.empresa, logo: cfg.logo, manejo: cfg.manejo, pinHash: isEnc() ? undefined : cfg.pinHash},
+    avaliacoes: allEvaluations, fotos: await allFotos(), cadastro: CAD, lotacoes: LOTS, excluidos: getTombs()};
+}
+function nomeArquivo(){ const n = norm(cfg.usuario || 'arpec').replace(/[^a-z0-9]+/g, '-'); const d = new Date(); return `arpec-dados-${n}-${todayISO()}-${String(d.getHours()).padStart(2,'0')}h${String(d.getMinutes()).padStart(2,'0')}.json`; }
+async function enviarDados(){
+  if (!isEnc() && !cfg.pinHash && !confirm('Você ainda não definiu o PIN do consultor. Sem ele, a encarregada poderá entrar como consultor.\n\nEnviar mesmo assim? (Cancelar para definir o PIN em Ajustes)')) { showSettings(); return; }
+  const data = await pacoteDados(), nome = nomeArquivo();
+  const file = new File([JSON.stringify(data)], nome, {type: 'application/json'});
+  const resumo = `${data.avaliacoes.length} avaliações, ${data.fotos.length} fotos, ${data.lotacoes.length} lotações`;
+  try {
+    if (navigator.canShare && navigator.canShare({files: [file]})) {
+      await navigator.share({files: [file], title: 'Dados ArPec', text: `Dados ArPec de ${cfg.usuario || ''} – ${resumo}. Abra o app ArPec e toque em 📥 Receber dados.`});
+    } else { downloadFile(file, nome, 'application/json'); alert(`📥 Arquivo salvo em Downloads: ${nome}\nEnvie pelo WhatsApp como documento.`); }
+    cfg.lastBackup = new Date().toISOString(); persistCfg(); updateHome();
+  } catch(e) { if (e.name !== 'AbortError') { downloadFile(file, nome, 'application/json'); alert('Não foi possível abrir o compartilhamento. O arquivo foi salvo em Downloads.'); } }
+}
+const upd = x => x.atualizadoEm || x.timestamp || (typeof x.id === 'number' ? new Date(x.id).toISOString() : '');
+async function receberDados(input){
+  const file = input.files[0]; input.value = ''; if (!file) return;
+  let d; try { d = JSON.parse(await file.text()); } catch(e) { alert('Arquivo inválido. Escolha o arquivo .json do ArPec.'); return; }
+  const avs = Array.isArray(d) ? d : d.avaliacoes;
+  if (!Array.isArray(avs)) { alert('Este arquivo não é do ArPec.'); return; }
+  if (!confirm(`Receber dados${d.de ? ' de ' + d.de : ''}${d.criado ? ' (' + new Date(d.criado).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) + ')' : ''}?\n\n${avs.length} avaliações · ${(d.lotacoes||[]).length} lotações · ${(d.cadastro?.fazendas||[]).length} fazendas no cadastro\n\nO app junta com o que já existe aqui, sem duplicar.`)) return;
+  const T = getTombs(), inT = d.excluidos || {}, C = {novas:0, atual:0, excl:0, lotN:0, lotA:0, fazN:0, fazA:0};
+  // exclusões recebidas
+  for (const [tipo, lista, set] of [['eval', allEvaluations, v => allEvaluations = v], ['lot', LOTS, v => LOTS = v], ['faz', CAD.fazendas, v => CAD.fazendas = v]]) {
+    const inc = inT[tipo] || {};
+    for (const [id, t] of Object.entries(inc)) { T[tipo] = T[tipo] || {}; if (!T[tipo][id] || T[tipo][id] < t) T[tipo][id] = t; }
+    set(lista.filter(x => { const t = (T[tipo] || {})[x.id]; const del = t && upd(x) <= t; if (del) C.excl++; return !del; }));
+  }
+  localStorage.setItem(LS_TOMB, JSON.stringify(T));
+  const merge = (local, inc, tipo, kN, kA) => { for (const x of inc || []) {
+    const t = (T[tipo] || {})[x.id]; if (t && upd(x) <= t) continue;
+    const i = local.findIndex(y => y.id === x.id);
+    if (i < 0) { local.push(x); C[kN]++; } else if (upd(x) > upd(local[i])) { local[i] = x; C[kA]++; }
+  } };
+  merge(allEvaluations, avs, 'eval', 'novas', 'atual');
+  merge(LOTS, d.lotacoes, 'lot', 'lotN', 'lotA');
+  if (d.cadastro && Array.isArray(d.cadastro.fazendas)) merge(CAD.fazendas, d.cadastro.fazendas, 'faz', 'fazN', 'fazA');
+  for (const ft of (d.fotos || [])) { try { await putFoto(ft); } catch(e){} }
+  // ajustes vêm só do consultor
+  if (d.config && d.perfil !== 'encarregada') {
+    if (Array.isArray(d.config.manejo) && d.config.manejo.length) cfg.manejo = d.config.manejo;
+    if (d.config.resp) cfg.resp = d.config.resp; if (d.config.empresa) cfg.empresa = d.config.empresa;
+    if (d.config.logo) { cfg.logo = d.config.logo; await kvSet('logo', cfg.logo); applyLogo(); }
+    if (d.config.pinHash && (isEnc() || !cfg.pinHash)) cfg.pinHash = d.config.pinHash;
+  }
+  allEvaluations.sort((a,b) => (b.data || '').localeCompare(a.data || '') || b.id - a.id);
+  saveToStorage(); saveCad(true); saveLots();
+  cfg.lastRecv = new Date().toISOString(); persistCfg(); updateHome(); applyPerfil();
+  alert(`✅ Dados recebidos${d.de ? ' de ' + d.de : ''}:\n\nAvaliações: ${C.novas} novas, ${C.atual} atualizadas\nLotações: ${C.lotN} novas, ${C.lotA} atualizadas\nCadastro: ${C.fazN} fazendas novas, ${C.fazA} atualizadas\nExcluídos: ${C.excl}`);
+}
+async function importBackup(input){ return receberDados(input); }
+
 // ===== INSTALAÇÃO (PWA) =====
 let deferredPrompt = null;
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); deferredPrompt = e; $('installBanner').style.display = 'block'; });
@@ -1454,7 +1587,7 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 
 // ===== INICIAR =====
 (async function init(){
-  buildForm(); loadEvaluations(); loadCad(); await loadConfig(); updateHome();
+  buildForm(); loadEvaluations(); loadCad(); await loadConfig(); primeiroAcesso(); applyPerfil(); updateHome();
 })();
 </script>
 </body>
