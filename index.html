@@ -157,7 +157,7 @@ body.enc .adm{display:none!important}
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último envio:</strong> <span id="lastBackup">nunca</span></p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Último recebimento:</strong> <span id="lastRecv">nunca</span></p>
-    <p class="hint">Versão 3.7 | Escala Técnica ArPec</p>
+    <p class="hint">Versão 3.8 | Escala Técnica ArPec</p>
   </div>
   <div class="section">
     <div class="section-title">🔄 Sincronizar</div>
@@ -166,7 +166,7 @@ body.enc .adm{display:none!important}
       <button class="btn-primary btn-small" onclick="enviarDados()">📤 Enviar dados</button>
       <button class="btn-secondary btn-small" onclick="document.getElementById('recvInput').click()">📥 Receber dados</button>
     </div>
-    <input type="file" id="recvInput" style="display:none" onchange="receberDados(this)">
+    <input type="file" id="recvInput" accept=".txt,.json,text/plain,application/json,application/octet-stream" style="display:none" onchange="receberDados(this)">
     <button class="btn-outline btn-small" style="width:100%;margin-top:8px" onclick="exportCSV()">📊 Exportar planilha CSV</button>
   </div>
 </div>
@@ -1571,7 +1571,10 @@ async function enviarArquivo(faz){
 const upd = x => x.atualizadoEm || x.timestamp || (typeof x.id === 'number' ? new Date(x.id).toISOString() : '');
 async function receberDados(input){
   const file = input.files[0]; input.value = ''; if (!file) return;
-  let d; try { d = JSON.parse(await file.text()); } catch(e) { alert('Arquivo inválido. Escolha o arquivo arpec-dados (.txt ou .json).'); return; }
+  return receberTexto(await file.text());
+}
+async function receberTexto(txt){
+  let d; try { d = JSON.parse(txt); } catch(e) { alert('Arquivo inválido. Escolha o arquivo arpec-dados (.txt ou .json).'); return; }
   const avs = Array.isArray(d) ? d : d.avaliacoes;
   if (!Array.isArray(avs)) { alert('Este arquivo não é do ArPec.'); return; }
   if (!confirm(`Receber dados${d.de ? ' de ' + d.de : ''}${d.criado ? ' (' + new Date(d.criado).toLocaleString('pt-BR', {dateStyle:'short', timeStyle:'short'}) + ')' : ''}?\n\n${avs.length} avaliações · ${(d.lotacoes||[]).length} lotações · ${(d.cadastro?.fazendas||[]).length} fazendas no cadastro\n\nO app junta com o que já existe aqui, sem duplicar.`)) return;
@@ -1620,6 +1623,12 @@ if (navigator.storage && navigator.storage.persist) navigator.storage.persist().
 // ===== INICIAR =====
 (async function init(){
   buildForm(); loadEvaluations(); loadCad(); await loadConfig(); primeiroAcesso(); applyPerfil(); updateHome();
+  // arquivo recebido pelo "Compartilhar" do WhatsApp
+  if (/[?&]recebido=1/.test(location.search)) {
+    history.replaceState(null, '', location.pathname);
+    try { const c = await caches.open('arpec-share'); const r = await c.match('share-file'); if (r) { await c.delete('share-file'); const t = await r.text(); setTimeout(() => receberTexto(t), 300); } else alert('Não encontrei o arquivo compartilhado. Tente de novo ou use 📥 Receber dados.'); }
+    catch(e) { alert('Não foi possível ler o arquivo compartilhado.'); }
+  }
 })();
 </script>
 </body>
