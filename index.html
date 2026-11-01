@@ -1399,6 +1399,8 @@ function showUso(){
   showScreen('usoScreen');
 }
 function usoPeriodo(n){ const fim = todayISO(); $('usoFim').value = fim; $('usoIni').value = addDias(fim, -(n - 1)); gerarUso(); }
+// lotações da fazenda (pelo id ou pelo nome, para dados vindos de outro aparelho)
+function lotsDaFaz(f){ return LOTS.filter(l => (l.fazendaId === f.id || l.fazenda === f.nome) && l.data).sort((x,y) => x.data.localeCompare(y.data) || x.id - y.id); }
 function obsArea(f, u, a){
   const m = {}, base = aeeOf(a) || Number(a.area) || 0;
   for (const e of allEvaluations) {
@@ -1409,8 +1411,11 @@ function obsArea(f, u, a){
     else if (P(e.lotacao) > 0) ua = P(e.lotacao) * base;
     if (ua != null) m[String(e.data).slice(0,10)] = {ua, fonte: 'av'};
   }
-  LOTS.filter(l => l.fazendaId === f.id && l.data).sort((x,y) => x.data.localeCompare(y.data) || x.id - y.id)
-    .forEach(l => { m[l.data] = {ua: uaLots((l.ocup || {})[a.id]), fonte: 'lot'}; });
+  lotsDaFaz(f).forEach(l => {
+    let ua = uaLots((l.ocup || {})[a.id]);
+    if (!ua && l.res && l.res.unidades) { const x = l.res.unidades.find(z => z.nome === u.nome); const y = x && (x.areas || []).find(z => z.nome === a.nome); if (y) ua = Number(y.ua) || 0; }
+    m[l.data] = {ua, fonte: 'lot'};
+  });
   return Object.entries(m).map(([d, v]) => ({d, ...v})).sort((x,y) => x.d.localeCompare(y.d));
 }
 function usoArea(obs, dias){
@@ -1457,9 +1462,9 @@ function calcUso(){
       lotMed: conhecidos && aee ? uaDias / conhecidos / aee : null,
       descMed: descs.length ? descs.reduce((s, x) => s + x, 0) / descs.length : null};
   });
-  const nLot = LOTS.filter(l => l.fazendaId === f.id && l.data >= ini && l.data <= fim).length;
+  const nLot = lotsDaFaz(f).filter(l => l.data >= ini && l.data <= fim).length;
   const nAv = allEvaluations.filter(e => e.fazenda === f.nome && e.data && e.data >= ini && e.data <= fim).length;
-  const datasLot = [...new Set(LOTS.filter(l => l.fazendaId === f.id && l.data <= fim).map(l => l.data))].sort();
+  const datasLot = [...new Set(lotsDaFaz(f).filter(l => l.data <= fim).map(l => l.data))].sort();
   let maxGap = 0; for (let i = 1; i < datasLot.length; i++) if (datasLot[i] > ini) maxGap = Math.max(maxGap, difDias(datasLot[i-1] < ini ? ini : datasLot[i-1], datasLot[i]));
   if (datasLot.length) maxGap = Math.max(maxGap, difDias(datasLot[datasLot.length-1] < ini ? ini : datasLot[datasLot.length-1], fim));
   return USO = {f, ini, fim, nd, unidades, nLot, nAv, maxGap};
