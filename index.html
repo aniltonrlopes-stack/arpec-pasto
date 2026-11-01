@@ -94,6 +94,17 @@ body.enc .adm{display:none!important}
 .kpi .big{grid-column:1/-1;background:var(--primary);color:#fff}
 .kpi .big b{color:#fff;font-size:1.6rem}
 
+/* ===== USO E DESCANSO ===== */
+.tl{display:flex;height:14px;border:1px solid #999;border-radius:2px;overflow:hidden;background:#fff;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.tl i{display:block;height:100%}
+.tl .o{background:#4d4d4d}.tl .d{background:#d9d9d9}.tl .n{background:repeating-linear-gradient(45deg,#fff 0 3px,#bbb 3px 4px)}
+.tl-esc{display:flex;justify-content:space-between;font-size:.7rem;color:var(--text-light);margin-top:1px}
+.tl-leg{display:flex;gap:12px;flex-wrap:wrap;font-size:.78rem;color:var(--text-light);margin:4px 0 8px}
+.tl-leg span{display:inline-flex;align-items:center;gap:4px}.tl-leg i{display:inline-block;width:14px;height:10px;border:1px solid #999;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.uso-a{padding:8px 0;border-bottom:1px solid var(--border)}.uso-a:last-child{border-bottom:none}
+.uso-a .nm{display:flex;justify-content:space-between;font-size:.9rem;margin-bottom:3px}
+.uso-a .st{font-size:.78rem;color:var(--text-light);margin-top:3px}
+.uso-tab{width:100%;border-collapse:collapse;font-size:.78rem}.uso-tab th,.uso-tab td{padding:4px 3px;border-bottom:1px solid var(--border);text-align:center}.uso-tab th:first-child,.uso-tab td:first-child{text-align:left}
 /* ===== RELATÓRIO PDF (impressão) ===== */
 @media print{
   @page{size:A4;margin:14mm 14mm 16mm}
@@ -123,6 +134,11 @@ body.enc .adm{display:none!important}
   .rep .sign .ln{border-top:.5pt solid #000;width:230pt;margin:0 auto 3pt}
   .rep .foot{margin-top:14pt;font-size:8.5pt;color:#555;border-top:.5pt solid #aaa;padding-top:4pt}
   .pb{page-break-before:always}
+  .rep .tl{height:9pt;border-radius:0}
+  .rep .tl-esc{font-size:7.5pt;color:#444}
+  .rep .tl-leg{font-size:8.5pt;color:#333}
+  .rep td.tlc{width:34%;vertical-align:middle}
+  .rep h4{font-size:10pt;margin:9pt 0 3pt}
 }
 </style>
 </head>
@@ -149,6 +165,9 @@ body.enc .adm{display:none!important}
     <button class="btn-primary btn-small" onclick="showCadastro()">🗺️ Cadastro de Áreas</button>
   </div>
   <div class="nav-buttons">
+    <button class="btn-primary btn-small" onclick="showUso()">📅 Uso e Descanso</button>
+  </div>
+  <div class="nav-buttons">
     <button class="btn-outline btn-small" onclick="showCalculator()">🧮 Calc. Rápida</button>
     <button class="btn-outline btn-small" onclick="showSettings()">⚙️ Ajustes e Backup</button>
   </div>
@@ -157,7 +176,7 @@ body.enc .adm{display:none!important}
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Armazenamento local:</strong> os dados e fotos ficam salvos neste aparelho, sem internet.</p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Avaliações:</strong> <span id="totalCount">0</span> &nbsp;|&nbsp; <strong>Último envio:</strong> <span id="lastBackup">nunca</span></p>
     <p style="font-size:.9rem;margin-bottom:8px"><strong>Último recebimento:</strong> <span id="lastRecv">nunca</span></p>
-    <p class="hint">Versão 3.8 | Escala Técnica ArPec</p>
+    <p class="hint">Versão 3.9 | Escala Técnica ArPec</p>
   </div>
   <div class="section">
     <div class="section-title">🔄 Sincronizar</div>
@@ -409,6 +428,29 @@ body.enc .adm{display:none!important}
     <div class="section-title">Lotações salvas</div>
     <ul class="history-list" id="lotHist"></ul>
   </div>
+</div>
+
+<div id="usoScreen" class="screen">
+  <button class="btn-secondary btn-small" style="margin-bottom:12px" onclick="showHome()">← Voltar</button>
+  <div class="section">
+    <div class="section-title">Uso e Descanso no Período</div>
+    <div class="form-group"><label>Fazenda *</label><select id="usoFaz"></select></div>
+    <div class="row">
+      <div class="form-group" style="flex:1"><label>De *</label><input type="date" id="usoIni"></div>
+      <div class="form-group" style="flex:1"><label>Até *</label><input type="date" id="usoFim"></div>
+    </div>
+    <div class="row" style="margin-bottom:6px">
+      <button class="btn-outline btn-small" onclick="usoPeriodo(30)">30 dias</button>
+      <button class="btn-outline btn-small" onclick="usoPeriodo(90)">90 dias</button>
+      <button class="btn-outline btn-small" onclick="usoPeriodo(180)">180 dias</button>
+    </div>
+    <p class="hint">Usa as <b>lotações salvas</b> e as <b>avaliações</b> (com nº de animais ou "sem animais"). A situação de cada piquete/pasto vale da data do registro até o registro seguinte.</p>
+    <div class="row" style="margin-top:10px">
+      <button class="btn-primary" onclick="gerarUso()">📊 Gerar</button>
+      <button class="btn-outline" onclick="printUso()">📄 PDF</button>
+    </div>
+  </div>
+  <div id="usoRes"></div>
 </div>
 
 </div>
@@ -1329,6 +1371,125 @@ function printLotRes(nomeF, data, R){
   doPrint(html, `Lotacao_${nomeF}_${data}`.replace(/[^\w\-]+/g, '_'));
 }
 
+
+// ===== USO E DESCANSO NO PERÍODO =====
+// Linha do tempo diária de cada piquete/pasto a partir das lotações salvas e das avaliações.
+// A situação registrada numa data vale até o registro seguinte (no mesmo dia, a lotação salva prevalece).
+const addDias = (iso, n) => { const d = new Date(iso + 'T12:00:00'); d.setDate(d.getDate() + n); return d.toISOString().slice(0,10); };
+const difDias = (a, b) => Math.round((new Date(b + 'T12:00:00') - new Date(a + 'T12:00:00')) / 864e5);
+function showUso(){
+  if (!CAD.fazendas.length) { if (confirm('Cadastre as áreas da fazenda primeiro. Abrir o cadastro?')) showCadastro(); return; }
+  const sel = $('usoFaz').value;
+  $('usoFaz').innerHTML = CAD.fazendas.map(f => `<option value="${f.id}">${esc(f.nome)}</option>`).join('');
+  if (sel && findFaz(sel)) $('usoFaz').value = sel;
+  if (!$('usoFim').value) $('usoFim').value = todayISO();
+  if (!$('usoIni').value) $('usoIni').value = addDias($('usoFim').value, -89);
+  showScreen('usoScreen');
+}
+function usoPeriodo(n){ const fim = todayISO(); $('usoFim').value = fim; $('usoIni').value = addDias(fim, -(n - 1)); gerarUso(); }
+function obsArea(f, u, a){
+  const m = {}, base = aeeOf(a) || Number(a.area) || 0;
+  for (const e of allEvaluations) {
+    if (e.fazenda !== f.nome || e.modulo !== u.nome || e.piquete !== a.nome || !e.data) continue;
+    let ua = null;
+    if (e.vazio) ua = 0;
+    else if (P(e.cab) > 0 && P(e.pesoMedioAv) > 0) ua = P(e.cab) * P(e.pesoMedioAv) / 450;
+    else if (P(e.lotacao) > 0) ua = P(e.lotacao) * base;
+    if (ua != null) m[String(e.data).slice(0,10)] = {ua, fonte: 'av'};
+  }
+  LOTS.filter(l => l.fazendaId === f.id && l.data).sort((x,y) => x.data.localeCompare(y.data) || x.id - y.id)
+    .forEach(l => { m[l.data] = {ua: uaLots((l.ocup || {})[a.id]), fonte: 'lot'}; });
+  return Object.entries(m).map(([d, v]) => ({d, ...v})).sort((x,y) => x.d.localeCompare(y.d));
+}
+function usoArea(obs, dias){
+  const st = []; let k = -1;
+  for (const d of dias) { while (k + 1 < obs.length && obs[k + 1].d <= d) k++; st.push(k >= 0 ? obs[k].ua : null); }
+  const tipo = v => v == null ? 'n' : (v > 0 ? 'o' : 'd');
+  const runs = [];
+  st.forEach((v, i) => { const t = tipo(v); const r = runs[runs.length - 1]; if (r && r.t === t) { r.len++; } else runs.push({t, i0: i, len: 1}); });
+  const R = {st, runs, o: 0, d: 0, n: 0, uaDias: 0};
+  st.forEach(v => { R[tipo(v)]++; if (v > 0) R.uaDias += v; });
+  R.ocup = runs.filter(r => r.t === 'o').length;
+  const media = l => l.length ? l.reduce((s, r) => s + r.len, 0) / l.length : null;
+  // períodos completos: começam e terminam dentro do período (ocupação) ou entre duas ocupações (descanso)
+  R.medOcup = media(runs.filter((r, i) => r.t === 'o' && i > 0 && i < runs.length - 1 && runs[i-1].t !== 'n' && runs[i+1].t !== 'n'));
+  R.medDesc = media(runs.filter((r, i) => r.t === 'd' && i > 0 && i < runs.length - 1 && runs[i-1].t === 'o' && runs[i+1].t === 'o'));
+  // situação no fim do período e desde quando (pode começar antes do início do período)
+  const fim = dias[dias.length - 1], ant = obs.filter(o => o.d <= fim);
+  if (ant.length) {
+    const t = ant[ant.length - 1].ua > 0; let j = ant.length - 1;
+    while (j > 0 && (ant[j - 1].ua > 0) === t) j--;
+    R.atual = {ocupado: t, desde: ant[j].d, dias: difDias(ant[j].d, fim)};
+  }
+  return R;
+}
+let USO = null;
+function calcUso(){
+  const f = findFaz($('usoFaz').value), ini = $('usoIni').value, fim = $('usoFim').value;
+  if (!f) return null;
+  if (!ini || !fim) { alert('Informe o período.'); return null; }
+  if (ini > fim) { alert('A data inicial deve ser antes da final.'); return null; }
+  const nd = difDias(ini, fim) + 1; if (nd > 731) { alert('Escolha um período de até 2 anos.'); return null; }
+  const dias = Array.from({length: nd}, (_, i) => addDias(ini, i));
+  const unidades = f.unidades.map(u => {
+    const areas = u.areas.map(a => ({nome: a.nome, aee: aeeOf(a) || Number(a.area) || 0, ...usoArea(obsArea(f, u, a), dias)}));
+    let com = 0, sem = 0, nInfo = 0;
+    for (let i = 0; i < nd; i++) {
+      const v = areas.map(a => a.st[i]);
+      if (v.some(x => x > 0)) com++; else if (v.length && v.every(x => x === 0)) sem++; else nInfo++;
+    }
+    const aee = areas.reduce((s, a) => s + a.aee, 0), uaDias = areas.reduce((s, a) => s + a.uaDias, 0);
+    const conhecidos = nd - nInfo;
+    const descs = areas.map(a => a.medDesc).filter(x => x != null);
+    return {tipo: u.tipo, nome: u.nome, grupo: u.grupo || '', areas, aee, com, sem, nInfo, uaDias,
+      lotMed: conhecidos && aee ? uaDias / conhecidos / aee : null,
+      descMed: descs.length ? descs.reduce((s, x) => s + x, 0) / descs.length : null};
+  });
+  const nLot = LOTS.filter(l => l.fazendaId === f.id && l.data >= ini && l.data <= fim).length;
+  const nAv = allEvaluations.filter(e => e.fazenda === f.nome && e.data && e.data >= ini && e.data <= fim).length;
+  const datasLot = [...new Set(LOTS.filter(l => l.fazendaId === f.id && l.data <= fim).map(l => l.data))].sort();
+  let maxGap = 0; for (let i = 1; i < datasLot.length; i++) if (datasLot[i] > ini) maxGap = Math.max(maxGap, difDias(datasLot[i-1] < ini ? ini : datasLot[i-1], datasLot[i]));
+  if (datasLot.length) maxGap = Math.max(maxGap, difDias(datasLot[datasLot.length-1] < ini ? ini : datasLot[datasLot.length-1], fim));
+  return USO = {f, ini, fim, nd, unidades, nLot, nAv, maxGap};
+}
+const dTxt = v => v == null ? '–' : `${num(v, 0)} d`;
+function tlHtml(a, nd){
+  return `<div class="tl">${a.runs.map(r => `<i class="${r.t}" style="flex:${r.len}" title="${r.len} d"></i>`).join('')}</div>`;
+}
+function tlEscala(U){ const meio = addDias(U.ini, Math.floor((U.nd - 1) / 2)); return `<div class="tl-esc"><span>${fmtDate(U.ini).slice(0,5)}</span><span>${fmtDate(meio).slice(0,5)}</span><span>${fmtDate(U.fim).slice(0,5)}</span></div>`; }
+const tlLegenda = `<div class="tl-leg"><span><i style="background:#4d4d4d"></i>com animais</span><span><i style="background:#d9d9d9"></i>descanso</span><span><i style="background:repeating-linear-gradient(45deg,#fff 0 3px,#bbb 3px 4px)"></i>sem registro</span></div>`;
+function atualTxt(a){ if (!a.atual) return 'sem registro'; return `${a.atual.ocupado ? '🐂 com animais' : '🌱 descanso'} há ${a.atual.dias} d`; }
+function gerarUso(){
+  const U = calcUso(); if (!U) return;
+  const aviso = !U.nLot && !U.nAv && U.unidades.every(u => u.nInfo === U.nd) ? `<p style="color:var(--danger)">Nenhum registro de lotação ou avaliação até ${fmtDate(U.fim)} nesta fazenda.</p>` :
+    (U.maxGap > 15 ? `<p class="hint" style="color:#8a5a00">⚠️ Houve ${U.maxGap} dias seguidos sem lotação salva. Trocas de piquete nesse intervalo não aparecem — salve a lotação a cada mudança de pasto para o relatório ficar exato.</p>` : '');
+  const grupos = [...new Set(U.unidades.map(u => u.grupo))];
+  const comp = `<div class="section"><div class="section-title">Comparativo – ${fmtDate(U.ini)} a ${fmtDate(U.fim)} (${U.nd} dias)</div>
+    <p class="hint" style="margin-bottom:6px">${U.nLot} lotações salvas e ${U.nAv} avaliações no período.</p>${aviso}
+    <table class="uso-tab"><tr><th>Módulo / Setor</th><th>Com animais</th><th>Sem animais</th><th>Lot. efet. média</th><th>Desc. médio piq./pasto</th></tr>
+    ${U.unidades.map(u => `<tr><td><b>${esc(u.nome)}</b><br><span class="hint">${u.tipo} · ${num(u.aee)} ha</span></td><td>${u.com} d</td><td>${u.sem} d${u.nInfo ? `<br><span class="hint">${u.nInfo} s/ reg.</span>` : ''}</td><td>${u.lotMed != null ? num(u.lotMed) : '–'}</td><td>${dTxt(u.descMed)}</td></tr>`).join('')}</table></div>`;
+  const det = grupos.map(g => (g ? `<h4 style="margin:8px 2px;color:var(--primary-dark)">${esc(g)}</h4>` : '') + U.unidades.filter(u => u.grupo === g).map(u => `
+    <details class="unit" open><summary><div><span class="tag ${u.tipo === 'Setor' ? 'setor' : ''}">${u.tipo}</span><b>${esc(u.nome)}</b><br><span class="hint">${u.com} d com animais · ${u.sem} d sem animais${u.lotMed != null ? ` · ${num(u.lotMed)} UA/ha média` : ''}</span></div><span>▾</span></summary>
+    <div class="unit-body">${tlLegenda}${u.areas.map(a => `<div class="uso-a"><div class="nm"><b>${esc(a.nome)}</b><span class="hint">${atualTxt(a)}</span></div>${tlHtml(a, U.nd)}${tlEscala(U)}
+      <div class="st">Ocupado <b>${a.o} d</b> · descanso <b>${a.d} d</b>${a.n ? ` · s/ reg. ${a.n} d` : ''} · ${a.ocup} ocupação(ões)<br>Ocupação média ${dTxt(a.medOcup)} · descanso médio ${dTxt(a.medDesc)} · ${num(a.aee ? a.uaDias / a.aee : 0, 0)} UA·dia/ha</div></div>`).join('') || '<span class="hint">Sem piquetes/pastos.</span>'}</div></details>`).join('')).join('');
+  $('usoRes').innerHTML = comp + det;
+}
+function printUso(){
+  const U = calcUso(); if (!U) return;
+  const resumo = `<table><tr><th>Módulo / Setor</th><th class="c">AEE (ha)</th><th class="c">Dias com animais</th><th class="c">Dias sem animais</th><th class="c">Sem registro</th><th class="c">% de uso</th><th class="c">Lot. efetiva média (UA/ha)</th><th class="c">Descanso médio dos piquetes/pastos</th></tr>
+    ${U.unidades.map(u => { const con = u.com + u.sem; return `<tr><td><b>${esc(u.nome)}</b> <span style="font-size:8.5pt;color:#555">${u.tipo}${u.grupo ? ' · ' + esc(u.grupo) : ''}</span></td><td class="c">${num(u.aee)}</td><td class="c">${u.com}</td><td class="c">${u.sem}</td><td class="c">${u.nInfo || '–'}</td><td class="c">${con ? num(u.com / con * 100, 0) + '%' : '–'}</td><td class="c">${u.lotMed != null ? num(u.lotMed) : '–'}</td><td class="c">${dTxt(u.descMed)}</td></tr>`; }).join('')}</table>`;
+  const det = U.unidades.map(u => `<h4>${esc(u.nome)} <span style="font-weight:normal;font-size:9pt;color:#555">(${u.tipo}${u.grupo ? ' · ' + esc(u.grupo) : ''})</span></h4>
+    <table><tr><th>${filho(u.tipo)}</th><th class="tlc">Linha do tempo</th><th class="c">Ocup. (d)</th><th class="c">Desc. (d)</th><th class="c">Nº ocup.</th><th class="c">Ocup. média</th><th class="c">Desc. médio</th><th class="c">UA·dia/ha</th><th class="c">Situação em ${fmtDate(U.fim).slice(0,5)}</th></tr>
+    ${u.areas.map(a => `<tr><td>${esc(a.nome)}</td><td class="tlc">${tlHtml(a, U.nd)}</td><td class="c">${a.o}</td><td class="c">${a.d}</td><td class="c">${a.ocup}</td><td class="c">${dTxt(a.medOcup)}</td><td class="c">${dTxt(a.medDesc)}</td><td class="c">${num(a.aee ? a.uaDias / a.aee : 0, 0)}</td><td class="c">${a.atual ? `${a.atual.ocupado ? 'Ocupado' : 'Descanso'} há ${a.atual.dias} d` : '–'}</td></tr>`).join('')}
+    <tr><td></td><td class="tlc" style="border-top:none">${tlEscala(U)}</td><td colspan="7" style="border:none"></td></tr></table>`).join('');
+  const html = `${repHeader('Relatório de Uso e Descanso', `${U.f.nome} · ${fmtDate(U.ini)} a ${fmtDate(U.fim)} (${U.nd} dias)`)}
+    <p style="font-size:9pt;color:#333">Base: ${U.nLot} lotações salvas e ${U.nAv} avaliações no período (e o último registro anterior ao início). A situação de cada piquete/pasto vale da data do registro até o registro seguinte.${U.maxGap > 15 ? ` <b>Atenção:</b> houve ${U.maxGap} dias seguidos sem lotação salva; mudanças nesse intervalo não aparecem.` : ''}</p>
+    <h3>Comparativo por módulo e setor</h3>${resumo}
+    <p style="font-size:8.5pt;color:#444;margin-top:3pt">Lotação efetiva média = soma das UA×dia ÷ dias com registro ÷ AEE. Ocupação/descanso médios consideram só os períodos completos dentro do intervalo (descanso = entre duas ocupações).</p>
+    <h3>Detalhe por piquete / pasto</h3>${tlLegenda}${det}
+    ${repFooter()}`;
+  doPrint(html, `UsoDescanso_${U.f.nome}_${U.ini}_${U.fim}`.replace(/[^\w\-]+/g, '_'));
+}
 
 // ===== ALTURA DO PASTO / REFERÊNCIAS DE MANEJO =====
 const MANEJO_PADRAO = [
