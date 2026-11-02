@@ -1,7 +1,7 @@
 {
-  "name": "ArPec Diagnóstico PASTO",
-  "short_name": "ArPec PASTO",
-  "description": "Diagnóstico inicial de gestão de pessoas – Método PASTO",
+  "name": "ArPec Diagnóstico Fazenda",
+  "short_name": "Diag. Fazenda",
+  "description": "Diagnóstico inicial da fazenda – gestão de pessoas (Método PASTO)",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
@@ -10,7 +10,17 @@
   "theme_color": "#335e50",
   "lang": "pt-BR",
   "icons": [
-    {"src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable"},
-    {"src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"}
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
   ]
 }
