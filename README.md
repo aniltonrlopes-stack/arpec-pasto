@@ -4,7 +4,7 @@ App off-line para avaliação de pastagens em campo (Escala Técnica ArPec).
 
 Abrir no celular: https://aniltonrlopes-stack.github.io/arpec-pasto/ → menu ⋮ → **Instalar app**.
 
-## ArPec – Diagnóstico PASTO
+## ArPec – Diagnóstico Fazenda
 
 Diagnóstico inicial de gestão de pessoas (Método PASTO), com relatório em PDF para o cliente.
 
