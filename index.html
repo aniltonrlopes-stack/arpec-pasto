@@ -354,8 +354,8 @@ body.enc .adm{display:none!important}
     <p class="hint" style="margin-top:10px">Uso do armazenamento: <span id="storageInfo">-</span></p>
   </div>
   <div class="section adm">
-    <div class="section-title">Referências de altura (cm)</div>
-    <p class="hint" style="margin-bottom:8px">Usadas na avaliação. A forrageira é reconhecida pelas palavras-chave (ex.: "marandu" → Braquiárias). Tolerância de ±10% no rotacionado.</p>
+    <div class="section-title">Referências de manejo por forrageira</div>
+    <p class="hint" style="margin-bottom:8px">Alturas (cm) usadas na avaliação e limites de ocupação/descanso (dias) usados no Uso e Descanso. A forrageira é reconhecida pelas palavras-chave (ex.: "marandu" → Braquiárias). Tolerância de ±10% no rotacionado. Forrageira sem referência: ocupação máx. ${OCUP_MAX_PADRAO} d e descanso máx. ${DESC_MAX_PADRAO} d.</p>
     <div id="manejoList"></div>
     <div class="row" style="margin-top:8px">
       <button class="btn-outline btn-small" onclick="addEspecie()">➕ Espécie</button>
@@ -574,6 +574,7 @@ async function loadConfig(){
   if (!cfg.resp) cfg.resp = 'Anilton de Rezende Lopes – CRMV-BA 1897';
   if (!cfg.empresa) cfg.empresa = 'ArPec Consultoria';
   if (!Array.isArray(cfg.manejo) || !cfg.manejo.length) cfg.manejo = JSON.parse(JSON.stringify(MANEJO_PADRAO));
+  cfg.manejo.forEach(m => { const d = MANEJO_PADRAO.find(x => norm(x.nome) === norm(m.nome)); if (m.oMax == null) m.oMax = d ? d.oMax : OCUP_MAX_PADRAO; if (m.dMax == null) m.dMax = d ? d.dMax : ''; });
   try { cfg.logo = await kvGet('logo') || null; } catch(e){ cfg.logo = null; }
   applyLogo();
 }
@@ -1688,7 +1689,12 @@ function calcUso(){
   const nd = difDias(ini, fim) + 1; if (nd > 731) { alert('Escolha um período de até 2 anos.'); return null; }
   const dias = Array.from({length: nd}, (_, i) => addDias(ini, i));
   const unidades = f.unidades.map(u => {
-    const areas = u.areas.map(a => ({nome: a.nome, aee: aeeOf(a) || Number(a.area) || 0, ...usoArea(obsArea(f, u, a), dias, d => fechamentoEm(f, a.id, d))}));
+    const areas = u.areas.map(a => { const x = {nome: a.nome, aee: aeeOf(a) || Number(a.area) || 0, lim: limitesArea(a), ...usoArea(obsArea(f, u, a), dias, d => fechamentoEm(f, a.id, d))};
+      x.ocupLongas = x.runs.filter(r => r.t === 'o' && r.len > x.lim.oMax).length;
+      x.descLongos = x.runs.filter(r => r.t === 'd' && r.len > x.lim.dMax).length;
+      const at = x.atual;
+      x.alerta = !at || at.fechado || !at.desde ? '' : at.ocupado ? (at.dias > x.lim.oMax ? 'ocup' : '') : (at.dias > x.lim.dMax ? 'desc' : at.dias >= x.lim.dMax - 3 ? 'ponto' : '');
+      return x; });
     let com = 0, sem = 0, nInfo = 0;
     for (let i = 0; i < nd; i++) { if (areas.some(a => a.st[i] > 0)) com++; else sem++; }
     const fech = areas.reduce((s, a) => s + a.f, 0);
@@ -1707,13 +1713,25 @@ function calcUso(){
   return USO = {f, ini, fim, nd, unidades, nLot, nAv, maxGap};
 }
 const dTxt = v => v == null ? '–' : `${num(v, 0)} d`;
+const limTxt = l => `${l.esp || 'sem referência'}: ocupação até ${l.oMax} d · descanso até ${l.dMax} d`;
+function alertasUso(U){
+  const L = {ocup: [], desc: [], ponto: []};
+  U.unidades.forEach(u => u.areas.forEach(a => { if (a.alerta) L[a.alerta].push({u, a}); }));
+  L.ocup.sort((x, y) => (y.a.atual.dias - y.a.lim.oMax) - (x.a.atual.dias - x.a.lim.oMax));
+  L.desc.sort((x, y) => (y.a.atual.dias - y.a.lim.dMax) - (x.a.atual.dias - x.a.lim.dMax));
+  L.ponto.sort((x, y) => (y.a.atual.dias - y.a.lim.dMax) - (x.a.atual.dias - x.a.lim.dMax));
+  return L;
+}
 function tlHtml(a, nd){
   return `<div class="tl">${a.runs.map(r => `<i class="${r.t}" style="flex:${r.len}" title="${r.len} d"></i>`).join('')}</div>`;
 }
 function tlEscala(U){ const meio = addDias(U.ini, Math.floor((U.nd - 1) / 2)); return `<div class="tl-esc"><span>${fmtDate(U.ini).slice(0,5)}</span><span>${fmtDate(meio).slice(0,5)}</span><span>${fmtDate(U.fim).slice(0,5)}</span></div>`; }
 const tlLegenda = `<div class="tl-leg"><span><i style="background:#4d4d4d"></i>com animais</span><span><i style="background:#d9d9d9"></i>descanso</span><span><i style="background:repeating-linear-gradient(45deg,#fff 0 3px,#999 3px 5px)"></i>fechado (reforma / alagado)</span></div>`;
-function atualTxt(a){ const x = a.atual; if (!x) return '–'; if (x.fechado) return `🚧 ${x.fechado.toLowerCase()} há ${x.dias} d`; if (!x.desde) return '🌱 descanso'; return `${x.ocupado ? '🐂 com animais' : '🌱 descanso'} há ${x.dias} d`; }
-function atualPdf(a){ const x = a.atual; if (!x) return '–'; if (x.fechado) return `${x.fechado} há ${x.dias} d`; if (!x.desde) return 'Descanso'; return `${x.ocupado ? 'Ocupado' : 'Descanso'} há ${x.dias} d`; }
+function atualTxt(a){ const x = a.atual; if (!x) return '–'; if (x.fechado) return `🚧 ${x.fechado.toLowerCase()} há ${x.dias} d`; if (!x.desde) return '🌱 descanso';
+  const al = a.alerta === 'ocup' ? ` <b style="color:var(--danger)">⚠️ passou de ${a.lim.oMax} d</b>` : a.alerta === 'desc' ? ` <b style="color:var(--danger)">⚠️ passou de ${a.lim.dMax} d</b>` : a.alerta === 'ponto' ? ` <b style="color:var(--primary)">✅ no ponto de entrar</b>` : '';
+  return `${x.ocupado ? '🐂 com animais' : '🌱 descanso'} há ${x.dias} d${al}`; }
+function atualPdf(a){ const x = a.atual; if (!x) return '–'; if (x.fechado) return `${x.fechado} há ${x.dias} d`; if (!x.desde) return 'Descanso';
+  return `${x.ocupado ? 'Ocupado' : 'Descanso'} há ${x.dias} d${a.alerta === 'ocup' || a.alerta === 'desc' ? ' <b>⚠</b>' : a.alerta === 'ponto' ? ' (no ponto)' : ''}`; }
 function gerarUso(){
   const U = calcUso(); if (!U) return;
   const aviso = !U.nLot && !U.nAv && U.unidades.every(u => u.nInfo === U.nd) ? `<p style="color:var(--danger)">Nenhum registro de lotação ou avaliação até ${fmtDate(U.fim)} nesta fazenda.</p>` :
@@ -1726,19 +1744,32 @@ function gerarUso(){
   const det = grupos.map(g => (g ? `<h4 style="margin:8px 2px;color:var(--primary-dark)">${esc(g)}</h4>` : '') + U.unidades.filter(u => u.grupo === g).map(u => `
     <details class="unit" open><summary><div><span class="tag ${u.tipo === 'Setor' ? 'setor' : ''}">${u.tipo}</span><b>${esc(u.nome)}</b><br><span class="hint">${u.com} d com animais · ${u.sem} d sem animais${u.lotMed != null ? ` · ${num(u.lotMed)} UA/ha média` : ''}</span></div><span>▾</span></summary>
     <div class="unit-body">${tlLegenda}${u.areas.map(a => `<div class="uso-a"><div class="nm"><b>${esc(a.nome)}</b><span class="hint">${atualTxt(a)}</span></div>${tlHtml(a, U.nd)}${tlEscala(U)}
-      <div class="st">Ocupado <b>${a.o} d</b> · descanso <b>${a.d} d</b>${a.f ? ` · fechado <b>${a.f} d</b>` : ''} · ${a.ocup} ocupação(ões)<br>Ocupação média ${dTxt(a.medOcup)} · descanso médio ${dTxt(a.medDesc)} · ${num(a.aee ? a.uaDias / a.aee : 0, 0)} UA·dia/ha</div></div>`).join('') || '<span class="hint">Sem piquetes/pastos.</span>'}</div></details>`).join('')).join('');
-  $('usoRes').innerHTML = comp + det;
+      <div class="st">Ocupado <b>${a.o} d</b> · descanso <b>${a.d} d</b>${a.f ? ` · fechado <b>${a.f} d</b>` : ''} · ${a.ocup} ocupação(ões)<br>Ocupação média ${dTxt(a.medOcup)} · descanso médio ${dTxt(a.medDesc)} · ${num(a.aee ? a.uaDias / a.aee : 0, 0)} UA·dia/ha${a.ocupLongas || a.descLongos ? `<br><span style="color:var(--danger)">⚠️ ${[a.ocupLongas ? `${a.ocupLongas} ocupação(ões) acima de ${a.lim.oMax} d` : '', a.descLongos ? `${a.descLongos} descanso(s) acima de ${a.lim.dMax} d` : ''].filter(Boolean).join(' · ')}</span>` : ''}<br><span class="hint">${esc(limTxt(a.lim))}</span></div></div>`).join('') || '<span class="hint">Sem piquetes/pastos.</span>'}</div></details>`).join('')).join('');
+  const AL = alertasUso(U), li = (x, t) => `<li><b>${esc(x.a.nome)}</b> <span class="hint">(${esc(x.u.nome)})</span> – ${t}</li>`;
+  const alertas = `<div class="section"><div class="section-title">Situação em ${fmtDate(U.fim)}</div>
+    ${AL.ocup.length ? `<p style="color:var(--danger);font-weight:600;margin-bottom:2px">⚠️ Ocupação acima do máximo (${AL.ocup.length})</p><ul style="margin:0 0 8px 18px;font-size:.88rem">${AL.ocup.map(x => li(x, `${x.a.atual.dias} d com animais (máx. ${x.a.lim.oMax} d)`)).join('')}</ul>` : ''}
+    ${AL.desc.length ? `<p style="color:var(--danger);font-weight:600;margin-bottom:2px">⚠️ Descanso acima do máximo – pasto passando do ponto (${AL.desc.length})</p><ul style="margin:0 0 8px 18px;font-size:.88rem">${AL.desc.map(x => li(x, `${x.a.atual.dias} d de descanso (máx. ${x.a.lim.dMax} d${x.a.lim.esp ? ' · ' + esc(x.a.lim.esp) : ''})`)).join('')}</ul>` : ''}
+    ${AL.ponto.length ? `<p style="color:var(--primary);font-weight:600;margin-bottom:2px">✅ No ponto de entrar – faltam até 3 dias para o descanso máximo (${AL.ponto.length})</p><ul style="margin:0 0 8px 18px;font-size:.88rem">${AL.ponto.map(x => li(x, `${x.a.atual.dias} d de descanso (máx. ${x.a.lim.dMax} d)`)).join('')}</ul>` : ''}
+    ${!AL.ocup.length && !AL.desc.length && !AL.ponto.length ? '<p class="hint">Nenhuma ocupação ou descanso fora dos limites.</p>' : ''}
+    <p class="hint">Limites por forrageira em Ajustes → Referências de manejo. Sem referência: ocupação até ${OCUP_MAX_PADRAO} d e descanso até ${DESC_MAX_PADRAO} d. Descanso contado desde a saída dos animais (ou desde o primeiro registro).</p></div>`;
+  $('usoRes').innerHTML = alertas + comp + det;
 }
 function printUso(){
   const U = calcUso(); if (!U) return;
   const resumo = `<table><tr><th>Módulo / Setor</th><th class="c">AEE (ha)</th><th class="c">Dias com animais</th><th class="c">Dias sem animais</th><th class="c">Dias fechados*</th><th class="c">% de uso</th><th class="c">Lot. efetiva média (UA/ha)</th><th class="c">Descanso médio dos piquetes/pastos</th></tr>
     ${U.unidades.map(u => { const con = u.com + u.sem; return `<tr><td><b>${esc(u.nome)}</b> <span style="font-size:8.5pt;color:#555">${u.tipo}${u.grupo ? ' · ' + esc(u.grupo) : ''}</span></td><td class="c">${num(u.aee)}</td><td class="c">${u.com}</td><td class="c">${u.sem}</td><td class="c">${u.fech || '–'}</td><td class="c">${con ? num(u.com / con * 100, 0) + '%' : '–'}</td><td class="c">${u.lotMed != null ? num(u.lotMed) : '–'}</td><td class="c">${dTxt(u.descMed)}</td></tr>`; }).join('')}</table>`;
   const det = U.unidades.map(u => `<h4>${esc(u.nome)} <span style="font-weight:normal;font-size:9pt;color:#555">(${u.tipo}${u.grupo ? ' · ' + esc(u.grupo) : ''})</span></h4>
-    <table><tr><th>${filho(u.tipo)}</th><th class="tlc">Linha do tempo</th><th class="c">Ocup. (d)</th><th class="c">Desc. (d)</th><th class="c">Fech. (d)</th><th class="c">Nº ocup.</th><th class="c">Ocup. média</th><th class="c">Desc. médio</th><th class="c">UA·dia/ha</th><th class="c">Situação em ${fmtDate(U.fim).slice(0,5)}</th></tr>
-    ${u.areas.map(a => `<tr><td>${esc(a.nome)}</td><td class="tlc">${tlHtml(a, U.nd)}</td><td class="c">${a.o}</td><td class="c">${a.d}</td><td class="c">${a.f || '–'}</td><td class="c">${a.ocup}</td><td class="c">${dTxt(a.medOcup)}</td><td class="c">${dTxt(a.medDesc)}</td><td class="c">${num(a.aee ? a.uaDias / a.aee : 0, 0)}</td><td class="c">${atualPdf(a)}</td></tr>`).join('')}
-    <tr><td></td><td class="tlc" style="border-top:none">${tlEscala(U)}</td><td colspan="8" style="border:none"></td></tr></table>`).join('');
+    <table><tr><th>${filho(u.tipo)}</th><th class="tlc">Linha do tempo</th><th class="c">Ocup. (d)</th><th class="c">Desc. (d)</th><th class="c">Fech. (d)</th><th class="c">Nº ocup.</th><th class="c">Ocup. média</th><th class="c">Desc. médio</th><th class="c">UA·dia/ha</th><th class="c">Acima do máx. (ocup./desc.)</th><th class="c">Situação em ${fmtDate(U.fim).slice(0,5)}</th></tr>
+    ${u.areas.map(a => `<tr><td>${esc(a.nome)}</td><td class="tlc">${tlHtml(a, U.nd)}</td><td class="c">${a.o}</td><td class="c">${a.d}</td><td class="c">${a.f || '–'}</td><td class="c">${a.ocup}</td><td class="c">${dTxt(a.medOcup)}</td><td class="c">${dTxt(a.medDesc)}</td><td class="c">${num(a.aee ? a.uaDias / a.aee : 0, 0)}</td><td class="c">${a.ocupLongas || a.descLongos ? `${a.ocupLongas} / ${a.descLongos}` : '–'}</td><td class="c">${atualPdf(a)}</td></tr>`).join('')}
+    <tr><td></td><td class="tlc" style="border-top:none">${tlEscala(U)}</td><td colspan="9" style="border:none"></td></tr></table>`).join('');
   const html = `${repHeader('Relatório de Uso e Descanso', `${U.f.nome} · ${fmtDate(U.ini)} a ${fmtDate(U.fim)} (${U.nd} dias)`)}
     <p style="font-size:9pt;color:#333">Base: ${U.nLot} lotações salvas e ${U.nAv} avaliações no período (e o último registro anterior ao início). A situação de cada piquete/pasto vale da data do registro até o registro seguinte; sem animais conta como descanso, exceto quando fechado por reforma ou alagamento.${U.maxGap > 15 ? ` <b>Atenção:</b> houve ${U.maxGap} dias seguidos sem lotação salva; mudanças nesse intervalo não aparecem.` : ''}</p>
+    ${(() => { const AL = alertasUso(U), linha = (x, t) => `<tr><td>${esc(x.a.nome)}</td><td>${esc(x.u.nome)}</td><td>${t}</td></tr>`;
+      const rows = [...AL.ocup.map(x => linha(x, `<b>Ocupação acima do máximo</b>: ${x.a.atual.dias} d (máx. ${x.a.lim.oMax} d)`)),
+        ...AL.desc.map(x => linha(x, `<b>Descanso acima do máximo</b>: ${x.a.atual.dias} d (máx. ${x.a.lim.dMax} d${x.a.lim.esp ? ' – ' + esc(x.a.lim.esp) : ''})`)),
+        ...AL.ponto.map(x => linha(x, `No ponto de entrar: ${x.a.atual.dias} d de descanso (máx. ${x.a.lim.dMax} d)`))];
+      return `<h3>Situação em ${fmtDate(U.fim)} – alertas de manejo</h3>` + (rows.length ? `<table><tr><th>Piquete / pasto</th><th>Módulo / Setor</th><th>Alerta</th></tr>${rows.join('')}</table>` : '<p style="font-size:9pt">Nenhuma ocupação ou descanso fora dos limites.</p>') +
+        `<p style="font-size:8.5pt;color:#444;margin-top:3pt">Limites: ocupação máxima e descanso máximo por forrageira (Referências de manejo); sem referência, ${OCUP_MAX_PADRAO} d e ${DESC_MAX_PADRAO} d. "No ponto de entrar" = faltam até 3 dias para o descanso máximo.</p>`; })()}
     <h3>Comparativo por módulo e setor</h3>${resumo}
     <p style="font-size:8.5pt;color:#444;margin-top:3pt">Lotação efetiva média = soma das UA×dia ÷ dias do período ÷ AEE. *Soma dos dias em que cada piquete/pasto da unidade ficou fechado (reforma ou alagado). Ocupação/descanso médios consideram só os períodos completos dentro do intervalo (descanso = entre duas ocupações).</p>
     <h3>Detalhe por piquete / pasto</h3>${tlLegenda}${det}
@@ -1748,9 +1779,15 @@ function printUso(){
 
 // ===== ALTURA DO PASTO / REFERÊNCIAS DE MANEJO =====
 const MANEJO_PADRAO = [
-  {nome:'Braquiárias', chaves:'braqui, brachi, brizant, marand, decumb, humid, ruziz, piata, xaraes, ipypora, cayman, mulato, sabia, paiaguas', cDim:20, cMan:30, cAum:35, rEnt:30, rSai:15},
-  {nome:'Mombaça', chaves:'mombac', cDim:40, cMan:50, cAum:80, rEnt:80, rSai:40}
+  {nome:'Braquiárias', chaves:'braqui, brachi, brizant, marand, decumb, humid, ruziz, piata, xaraes, ipypora, cayman, mulato, sabia, paiaguas', cDim:20, cMan:30, cAum:35, rEnt:30, rSai:15, oMax:8, dMax:32},
+  {nome:'Mombaça', chaves:'mombac', cDim:40, cMan:50, cAum:80, rEnt:80, rSai:40, oMax:8, dMax:28}
 ];
+// limites do pastejo rotacionado (dias) quando a forrageira não tem referência própria
+const OCUP_MAX_PADRAO = 8, DESC_MAX_PADRAO = 32;
+function limitesArea(a){
+  const esp = especieDe(a.forrageira);
+  return {oMax: P(esp && esp.oMax) || OCUP_MAX_PADRAO, dMax: P(esp && esp.dMax) || DESC_MAX_PADRAO, esp: esp ? esp.nome : '', proprio: !!(esp && P(esp.dMax) > 0)};
+}
 const r1 = v => Math.round(v * 10) / 10;
 function especieDe(forr){
   const t = norm(forr); if (!t) return null;
@@ -1813,12 +1850,14 @@ function renderManejo(){
     <div class="row">${['cDim','cMan','cAum'].map(k => `<input type="number" inputmode="decimal" value="${m[k] ?? ''}" data-i="${i}" data-k="${k}">`).join('')}</div>
     <span class="hint" style="display:block;margin-top:6px"><b>Rotacionado</b> – entrada / saída</span>
     <div class="row">${['rEnt','rSai'].map(k => `<input type="number" inputmode="decimal" value="${m[k] ?? ''}" data-i="${i}" data-k="${k}">`).join('')}</div>
+    <span class="hint" style="display:block;margin-top:6px"><b>Rotacionado</b> – ocupação máxima / descanso máximo (dias)</span>
+    <div class="row">${['oMax','dMax'].map(k => `<input type="number" inputmode="numeric" value="${m[k] ?? ''}" data-i="${i}" data-k="${k}" placeholder="${k === 'oMax' ? OCUP_MAX_PADRAO : DESC_MAX_PADRAO}">`).join('')}</div>
   </div>`).join('');
 }
 function readManejoForm(){
-  document.querySelectorAll('#manejoList [data-k]').forEach(el => { const m = cfg.manejo[+el.dataset.i]; const k = el.dataset.k; m[k] = /^[cr]/.test(k) && k !== 'chaves' ? P(el.value) : el.value.trim(); });
+  document.querySelectorAll('#manejoList [data-k]').forEach(el => { const m = cfg.manejo[+el.dataset.i]; const k = el.dataset.k; m[k] = (/^[cr]/.test(k) && k !== 'chaves') || /Max$/.test(k) ? (el.value.trim() === '' ? '' : P(el.value)) : el.value.trim(); });
 }
-function addEspecie(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; } readManejoForm(); cfg.manejo.push({nome:'Nova espécie', chaves:'', cDim:'', cMan:'', cAum:'', rEnt:'', rSai:''}); renderManejo(); }
+function addEspecie(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; } readManejoForm(); cfg.manejo.push({nome:'Nova espécie', chaves:'', cDim:'', cMan:'', cAum:'', rEnt:'', rSai:'', oMax:OCUP_MAX_PADRAO, dMax:''}); renderManejo(); }
 function delEspecie(i){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; } readManejoForm(); if (!confirm(`Remover "${cfg.manejo[i].nome}"?`)) return; cfg.manejo.splice(i, 1); renderManejo(); }
 function saveManejo(){ if (!adm()) { if (typeof input !== 'undefined' && input) input.value = ''; return; } readManejoForm(); cfg.manejo = cfg.manejo.filter(m => m.nome); persistCfg(); renderManejo(); alert('✅ Referências salvas'); }
 // lê a aba de manejo (alturas) de uma planilha importada
