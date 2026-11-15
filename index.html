@@ -421,6 +421,9 @@ body.enc .adm{display:none!important}
       <p class="hint" style="margin-top:4px">São descontados da área total para a lotação da fazenda. Use 0 se não houver.</p>
     </div>
     <button class="btn-secondary" style="width:100%;margin-bottom:10px" onclick="puxarDasAvaliacoes()">📥 Puxar animais das avaliações</button>
+    <button class="btn-secondary" style="width:100%;margin-bottom:4px" onclick="$('sisPdfInput').click()">📄 Importar do sistema da fazenda (PDF)</button>
+    <input type="file" id="sisPdfInput" accept=".pdf,application/pdf" multiple style="display:none" onchange="importarSistemaPdf(this)">
+    <p class="hint" style="margin-bottom:10px">Marque juntos os PDFs <b>Ficha Animal – Geral</b> e <b>Transferências de Locais</b>. O app monta uma lotação para cada dia com mudança de pasto.</p>
     <p class="hint">Informe nº de animais e peso médio (kg) só nos piquetes/pastos ocupados. UA = peso ÷ 450.<br>💾 O que você digita fica guardado automaticamente até tocar em Salvar.</p>
   </div>
   <div id="lotUnidades"></div>
@@ -1232,6 +1235,185 @@ function pickArea(){
   updAltura();
 }
 
+// ===== IMPORTAR DO SISTEMA DA FAZENDA (PDF) =====
+// Lê os relatórios "Ficha Animal - Geral" (local e peso atual de cada animal) e
+// "Transferências de Locais" (mudanças de pasto) e monta uma lotação por data.
+async function inflarPdf(bytes){
+  const s = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('deflate'));
+  return new Uint8Array(await new Response(s).arrayBuffer());
+}
+function pdfStr(s){ return s.replace(/\\([nrtbf()\\]|[0-7]{1,3})/g, (m, c) => ({n:'\n', r:'\r', t:'\t', b:'\b', f:'\f', '(':'(', ')':')', '\\':'\\'})[c] ?? String.fromCharCode(parseInt(c, 8))); }
+async function pdfPaginas(buf){
+  const u8 = new Uint8Array(buf), bin = new TextDecoder('windows-1252').decode(u8), dec = new TextDecoder('windows-1252');
+  const pags = []; const re = /stream\r?\n/g; let m;
+  while ((m = re.exec(bin))) {
+    const ini = m.index + m[0].length; let fim = bin.indexOf('endstream', ini); if (fim < 0) break;
+    re.lastIndex = fim + 9;
+    let f2 = fim; if (bin[f2 - 1] === '\n') f2--; if (bin[f2 - 1] === '\r') f2--;
+    const dict = bin.slice(bin.lastIndexOf('<<', m.index), m.index);
+    if (/\/Subtype\s*\/Image/.test(dict)) continue;
+    let txt;
+    try { txt = /FlateDecode/.test(dict) ? dec.decode(await inflarPdf(u8.subarray(ini, f2))) : bin.slice(ini, f2); } catch (e) { continue; }
+    if (txt.includes(' Td (')) pags.push(txt);
+  }
+  return pags;
+}
+// devolve {titulo, data, fazenda, linhas:[{coluna: valor}]}
+function pdfTabela(pags){
+  const STR = '\\(((?:\\\\.|[^\\\\)])*)\\)';
+  let cols = null, titulo = '', data = '', fazenda = ''; const linhas = [];
+  for (const pg of pags) {
+    const hdr = [...pg.matchAll(new RegExp(`([\\d.]+) [\\d.]+ ([\\d.]+) -?[\\d.]+ re f[^\\n]*?BT ([\\d.]+) ([\\d.]+) Td ${STR} Tj`, 'g'))]
+      .map(x => ({x0: +x[1], x1: +x[1] + +x[2], y: +x[4], nome: pdfStr(x[5]).trim()}));
+    if (hdr.length >= 3) {
+      const nY = {}; hdr.forEach(h => { const k = Math.round(h.y); nY[k] = (nY[k] || 0) + 1; });
+      const yT = +Object.entries(nY).sort((a, b) => b[1] - a[1])[0][0];
+      if (nY[yT] >= 3) cols = hdr.filter(h => Math.round(h.y) === yT);
+    }
+    if (!cols) continue;
+    const yHdr = Math.min(...cols.map(c => c.y));
+    const txts = [...pg.matchAll(new RegExp(`BT ([\\d.]+) ([\\d.]+) Td ${STR} Tj`, 'g'))].map(x => ({x: +x[1], y: +x[2], t: pdfStr(x[3]).trim()}));
+    for (const t of txts) {
+      if (t.y <= yHdr) continue;
+      if (!titulo && /[a-z]/.test(t.t) && !/^FAZENDA/i.test(t.t) && !/^\d/.test(t.t) && !cols.some(c => c.nome === t.t)) titulo = t.t;
+      if (!data && /^\d\d\/\d\d\/\d{4}/.test(t.t)) data = t.t;
+      if (!fazenda && /^FAZENDA\s/i.test(t.t)) fazenda = t.t;
+    }
+    const porY = new Map();
+    for (const t of txts) {
+      if (t.y >= yHdr - 0.5 || !t.t) continue;
+      const c = cols.find(c => t.x >= c.x0 - 0.5 && t.x < c.x1); if (!c) continue;
+      const k = Math.round(t.y * 10); if (!porY.has(k)) porY.set(k, {});
+      const r = porY.get(k); r[c.nome] = r[c.nome] ? r[c.nome] + ' ' + t.t : t.t;
+    }
+    [...porY.entries()].sort((a, b) => b[0] - a[0]).forEach(([, r]) => { if (Object.keys(r).length >= 3) linhas.push(r); });
+  }
+  return {titulo, data, fazenda, linhas};
+}
+const dataBR2ISO = s => { const m = String(s || '').match(/(\d\d)\/(\d\d)\/(\d{4})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+const pesoKg = s => { const v = P(String(s || '').replace(/kg/i, '')); return v > 0 ? v : null; };
+function colDe(r, ...nomes){ for (const k of Object.keys(r)) if (nomes.some(n => norm(k).startsWith(norm(n)))) return r[k]; return ''; }
+
+// Reconstrói onde cada animal estava no fim de cada dia com transferência.
+// Volta no tempo a partir da ficha (situação atual), desfazendo as transferências.
+function reconstruirLocais(ficha, transf){
+  const dataFicha = dataBR2ISO(ficha.data) || todayISO();
+  const A = ficha.linhas.map((r, i) => ({i, brinco: colDe(r, 'Brinco').trim(), idade: colDe(r, 'Idade'), sexo: colDe(r, 'Sexo'), cat: colDe(r, 'Categoria') || 'Sem categoria', loc: colDe(r, 'Local').trim(), peso: pesoKg(colDe(r, 'Peso'))}));
+  // animais sem peso: média da categoria (bezerros mamando ficam fora da UA)
+  const somaCat = {};
+  A.forEach(a => { if (a.peso) { const s = somaCat[a.cat] = somaCat[a.cat] || [0, 0]; s[0] += a.peso; s[1]++; } });
+  A.forEach(a => { if (!a.peso && somaCat[a.cat]) { a.peso = somaCat[a.cat][0] / somaCat[a.cat][1]; a.pesoEst = true; } });
+  const porBrinco = new Map(A.filter(a => a.brinco).map(a => [a.brinco, a]));
+  const T = (transf ? transf.linhas : []).map(r => ({brinco: colDe(r, 'Brinco').trim(), idade: colDe(r, 'Idade'), sexo: colDe(r, 'Sexo'), cat: colDe(r, 'Categoria'), data: dataBR2ISO(colDe(r, 'Data')), de: colDe(r, 'Origem').trim(), para: colDe(r, 'Destino').trim()}))
+    .filter(t => t.data && t.data <= dataFicha);
+  const datas = [...new Set(T.map(t => t.data))].sort().reverse();
+  const snaps = {}, foto = () => A.map(a => a.loc);
+  snaps[dataFicha] = foto();
+  let naoAchados = 0;
+  for (const d of datas) {
+    snaps[d] = foto();
+    let pend = T.filter(t => t.data === d), mudou = true;
+    while (pend.length && mudou) {
+      mudou = false;
+      pend = pend.filter(t => {
+        const a = t.brinco ? porBrinco.get(t.brinco)
+          : A.find(a => !a.brinco && a.loc === t.para && a.sexo === t.sexo && a.cat === t.cat && a.idade === t.idade && !(a._mv && a._mv.has(d + '|' + t.de + '|' + t.para)));
+        if (!a || norm(a.loc) !== norm(t.para)) return true;
+        a.loc = t.de; if (!t.brinco) (a._mv = a._mv || new Set()).add(d + '|' + t.de + '|' + t.para); mudou = true; return false;
+      });
+    }
+    // o que não encaixou na cadeia: aplica pelo brinco mesmo assim
+    pend.forEach(t => { const a = t.brinco && porBrinco.get(t.brinco); if (a) a.loc = t.de; else naoAchados++; });
+  }
+  if (datas.length) { const d0 = addDias(datas[datas.length - 1], -1); snaps[d0] = foto(); }
+  return {A, snaps, dataFicha, nTransf: T.length, naoAchados};
+}
+const compactNome = s => norm(s).replace(/^(piquete|pasto|pq|p)\s*/, '').replace(/[^a-z0-9]/g, '');
+function sugerirArea(f, local){
+  const todas = f.unidades.flatMap(u => u.areas.map(a => ({u, a})));
+  return todas.find(x => norm(x.a.nome) === norm(local))
+    || todas.find(x => compactNome(x.a.nome) === compactNome(local))
+    || todas.find(x => compactNome(x.u.nome + x.a.nome) === compactNome(local));
+}
+
+let IMPSIS = null;
+async function importarSistemaPdf(input){
+  const files = [...input.files]; input.value = ''; if (!files.length) return;
+  const f = findFaz($('lotFaz').value); if (!f) return;
+  let ficha = null, transf = null;
+  try {
+    for (const file of files) {
+      const t = pdfTabela(await pdfPaginas(await file.arrayBuffer()));
+      const cab = t.linhas.length ? Object.keys(Object.assign({}, ...t.linhas.slice(0, 20))) : [];
+      if (cab.some(c => /^local$/i.test(c)) && cab.some(c => /^peso/i.test(c))) ficha = t;
+      else if (cab.some(c => /^origem$/i.test(c)) && cab.some(c => /^destino$/i.test(c))) transf = t;
+    }
+  } catch (e) { alert('Não foi possível ler o PDF: ' + e.message); return; }
+  if (!ficha) { alert('Selecione também o relatório "Ficha Animal - Geral" (com Local e Peso Atual de cada animal).\n\nEle mostra onde cada animal está hoje; o relatório "Transferências de Locais" mostra as mudanças de pasto. Toque no botão e marque os dois PDFs juntos.'); return; }
+  const fz = ficha.fazenda || (transf && transf.fazenda) || '';
+  if (fz && compactNome(fz).replace(/^fazenda/, '') !== compactNome(f.nome).replace(/^fazenda/, '') && !confirm(`Os relatórios são da "${fz}", mas a fazenda escolhida no app é "${f.nome}".\n\nContinuar mesmo assim?`)) return;
+  const R = reconstruirLocais(ficha, transf);
+  const locais = [...new Set(Object.values(R.snaps).flat().filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  f.mapaLocais = f.mapaLocais || {};
+  const mapa = {}; locais.forEach(l => { const k = norm(l); mapa[l] = f.mapaLocais[k] ?? (sugerirArea(f, l)?.a.id || ''); });
+  IMPSIS = {f, R, locais, mapa, transf: !!transf};
+  abrirMapaLocais();
+}
+function abrirMapaLocais(){
+  const {f, locais, mapa} = IMPSIS;
+  const opts = `<option value="">— escolher —</option><option value="-">Fora das pastagens (ignorar)</option>` + f.unidades.map(u => `<optgroup label="${esc(u.tipo + ' ' + u.nome)}">${u.areas.map(a => `<option value="${a.id}">${esc(a.nome)}</option>`).join('')}</optgroup>`).join('');
+  const faltam = locais.filter(l => !mapa[l]).length;
+  $('mTitle').textContent = 'Locais do sistema → áreas do app';
+  $('mBody').innerHTML = `<p class="hint" style="margin-bottom:8px">${faltam ? `<b>${faltam} local(is) sem correspondência.</b> ` : ''}Confira a qual piquete/pasto do cadastro corresponde cada local do sistema. A escolha fica guardada para as próximas importações.</p>
+    <div style="max-height:55vh;overflow:auto">${locais.map((l, i) => `<div class="form-group" style="margin-bottom:6px"><label style="${mapa[l] ? '' : 'color:var(--danger)'}">${esc(l)}</label><select id="ml_${i}">${opts}</select></div>`).join('')}</div>`;
+  locais.forEach((l, i) => { $('ml_' + i).value = mapa[l] || ''; });
+  $('mOk').textContent = 'Continuar';
+  $('mOk').onclick = () => {
+    locais.forEach((l, i) => { mapa[l] = $('ml_' + i).value; });
+    const sem = locais.filter(l => !mapa[l]);
+    if (sem.length) { alert(`Escolha a área (ou "Fora das pastagens") para:\n\n• ${sem.join('\n• ')}`); return; }
+    locais.forEach(l => { IMPSIS.f.mapaLocais[norm(l)] = mapa[l]; }); saveCad();
+    closeModal(); concluirImportSistema();
+  };
+  $('modal').classList.add('open');
+}
+function concluirImportSistema(){
+  const {f, R, mapa} = IMPSIS;
+  const datas = Object.keys(R.snaps).sort();
+  const novos = []; let semPeso = 0, fora = 0;
+  datas.forEach((d, di) => {
+    const ocup = {};
+    R.A.forEach((a, i) => {
+      const loc = R.snaps[d][i]; if (!loc) return;
+      const aid = mapa[loc]; if (!aid || aid === '-') { if (di === datas.length - 1) fora++; return; }
+      if (!a.peso) { if (di === datas.length - 1) semPeso++; return; }
+      const ls = ocup[aid] = ocup[aid] || []; let l = ls.find(x => x.cat === a.cat);
+      if (!l) { l = {cat: a.cat, n: 0, soma: 0}; ls.push(l); }
+      l.n++; l.soma += a.peso;
+    });
+    Object.values(ocup).forEach(ls => ls.forEach(l => { l.peso = Math.round(l.soma / l.n * 10) / 10; delete l.soma; }));
+    const ant = LOTS.filter(l => l.fazendaId === f.id && l.data <= d && l.fonte !== 'sistema').sort((a, b) => b.data.localeCompare(a.data))[0];
+    const reforma = ant ? P(ant.reforma) || 0 : 0, alagado = ant ? P(ant.alagado) || 0 : 0;
+    novos.push({id: Date.now() + di, atualizadoEm: new Date().toISOString(), autor: cfg.usuario || '', fonte: 'sistema', data: d, fazendaId: f.id, fazenda: f.nome, reforma, alagado, ocup, res: computeLot(f, ocup, reforma, alagado)});
+  });
+  const ult = novos[novos.length - 1].res;
+  const subst = LOTS.filter(l => l.fazendaId === f.id && l.fonte === 'sistema' && datas.includes(l.data)).length;
+  const msg = `${f.nome}\n\n${novos.length} lotações, de ${fmtDate(datas[0])} a ${fmtDate(datas[datas.length - 1])}` +
+    (IMPSIS.transf ? ` (${R.nTransf} transferências)` : '') +
+    `\n\nSituação em ${fmtDate(datas[datas.length - 1])}: ${ult.cab} cab · ${num(ult.ua, 1)} UA · ${num(ult.lotFaz)} UA/ha` +
+    (semPeso ? `\n\n• ${semPeso} animais sem peso (bezerros ao pé) não entram na UA.` : '') +
+    (fora ? `\n• ${fora} animais em locais fora das pastagens.` : '') +
+    (R.naoAchados ? `\n• ${R.naoAchados} transferências sem animal correspondente na ficha (ignoradas).` : '') +
+    `\n• O peso usado em todas as datas é o peso atual da ficha.` +
+    (subst ? `\n\n${subst} lotação(ões) importadas antes nestas datas serão substituídas.` : '') + '\n\nImportar?';
+  if (!confirm(msg)) return;
+  LOTS = LOTS.filter(l => !(l.fazendaId === f.id && l.fonte === 'sistema' && datas.includes(l.data))).concat(novos);
+  saveLots(); renderLotHist(); IMPSIS = null;
+  if (confirm(`✅ ${novos.length} lotações importadas.\n\nAbrir o relatório de Uso e Descanso?`)) {
+    showUso(); $('usoFaz').value = f.id; $('usoIni').value = datas[0]; $('usoFim').value = datas[datas.length - 1]; gerarUso();
+  }
+}
+
 // ===== LOTAÇÃO =====
 // instantânea = UA ÷ AEE do piquete/pasto · efetiva = UA ÷ AEE total do módulo/setor
 // fazenda = UA total ÷ (área total − reforma − alagado)
@@ -1341,7 +1523,7 @@ function saveLot(){
 function renderLotHist(){
   const fid = $('lotFaz').value, ls = LOTS.filter(l => l.fazendaId === fid).sort((a,b) => b.data.localeCompare(a.data) || b.id - a.id);
   $('lotHist').innerHTML = ls.length ? ls.map(l => `<li class="history-item" style="cursor:default">
-    <div class="history-item-header"><div><div class="history-item-title">${fmtDate(l.data)}</div><div class="history-item-date">${l.res.cab} cab · ${num(l.res.ua,1)} UA · útil ${num(l.res.util)} ha</div></div><div class="history-item-note">${num(l.res.lotFaz)}</div></div>
+    <div class="history-item-header"><div><div class="history-item-title">${fmtDate(l.data)}${l.fonte === 'sistema' ? ' <span class="tag setor" style="font-size:.7rem">sistema</span>' : ''}</div><div class="history-item-date">${l.res.cab} cab · ${num(l.res.ua,1)} UA · útil ${num(l.res.util)} ha</div></div><div class="history-item-note">${num(l.res.lotFaz)}</div></div>
     <div class="row" style="margin-top:6px"><button class="btn-outline btn-small" onclick="printLot(${l.id})">📄 PDF</button><button class="btn-outline btn-small adm" onclick="delLot(${l.id})">🗑️ Excluir</button></div></li>`).join('') : '<div class="hint">Nenhuma lotação salva para esta fazenda.</div>';
 }
 function delLot(id){ if (!adm()) return; if (!confirm('Excluir esta lotação?')) return; tomb('lot', id); LOTS = LOTS.filter(l => l.id !== id); saveLots(); renderLotHist(); }
