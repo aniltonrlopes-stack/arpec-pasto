@@ -970,7 +970,7 @@ function lastEvalFor(fz, u, a){ return allEvaluations.find(e => e.fazenda === fz
 function openFazenda(id){
   curFazId = id; const f = findFaz(id); if (!f) return showCadastro();
   $('fazTitle').textContent = f.nome;
-  $('fazResumo').innerHTML = `Área total: <b>${num(fazArea(f))} ha</b> · AEE: <b>${num(fazAee(f))} ha</b><br>Toque num módulo/setor para ver e editar os ${'piquetes/pastos'}.<br><span class="hint">Piquete/pasto sem animais conta como descanso. Use 🚧 só para fechar o que estiver em reforma ou alagado.</span>`;
+  $('fazResumo').innerHTML = `Área total: <b>${num(fazArea(f))} ha</b> · AEE: <b>${num(fazAee(f))} ha</b><br>Toque num módulo/setor para ver e editar os ${'piquetes/pastos'}.<br><span class="hint">Piquete/pasto sem animais conta como descanso. Toque em <b>Fechar</b> só no que estiver em reforma ou alagado; os fechados aparecem com 🚧.</span>`;
   const grupos = [...new Set(f.unidades.map(u => u.grupo || ''))];
   $('unidList').innerHTML = grupos.map(g => `${g ? `<h4 style="margin:8px 2px;color:var(--primary-dark)">${esc(g)}</h4>` : ''}` +
     f.unidades.filter(u => (u.grupo || '') === g).map(u => `
@@ -978,7 +978,7 @@ function openFazenda(id){
       <summary><div><span class="tag ${u.tipo === 'Setor' ? 'setor' : ''}">${u.tipo}</span><b>${esc(u.nome)}</b><br><span class="hint">${u.areas.length} ${filho(u.tipo).toLowerCase()}s · ${num(uniArea(u))} ha · AEE ${num(uniAee(u))} ha</span></div><span>▾</span></summary>
       <div class="unit-body">
         ${u.areas.map(a => { const le = lastEvalFor(f, u, a), fe = (f.fechamentos || []).find(x => x.areaId === a.id && !x.fim); return `<div class="arow"><div>${esc(a.nome)}<small>${num(a.area)} ha · AEE ${num(aeeOf(a))} ha${a.forrageira ? ' · ' + esc(a.forrageira) : ''}</small>${fe ? `<small style="color:#8a5a00;font-weight:600">${fechTxt(fe)}</small>` : ''}${le ? `<small>Últ. avaliação: ${String(le.nota).replace('.', ',')} (${classify(le.nota)}) em ${fmtDate(le.data)}</small>` : '<small>Sem avaliação</small>'}</div>
-          <div class="acts"><button title="${fe ? 'Reabrir' : 'Fechar (reforma ou alagado)'}" onclick="fecharArea('${u.id}','${a.id}')">${fe ? '🔓' : '🚧'}</button><span class="adm" style="display:contents"><button onclick="editArea('${u.id}','${a.id}')">✏️</button><button onclick="delArea('${u.id}','${a.id}')">🗑️</button></span></div></div>`; }).join('')}
+          <div class="acts"><button title="${fe ? 'Reabrir para pastejo' : 'Fechar por reforma ou alagamento'}" style="font-size:.72rem;${fe ? 'background:#fff3d6;border:1px solid #e0b860' : ''}" onclick="fecharArea('${u.id}','${a.id}')">${fe ? 'Reabrir' : 'Fechar'}</button><span class="adm" style="display:contents"><button onclick="editArea('${u.id}','${a.id}')">✏️</button><button onclick="delArea('${u.id}','${a.id}')">🗑️</button></span></div></div>`; }).join('')}
         <div class="row adm" style="margin-top:8px"><button class="btn-outline btn-small" onclick="editArea('${u.id}')">➕ ${filho(u.tipo)}</button><button class="btn-outline btn-small" onclick="editUnidade('${u.id}')">✏️ ${u.tipo}</button><button class="btn-danger btn-small" style="flex:none" onclick="delUnidade('${u.id}')">🗑️</button></div>
       </div>
     </details>`).join('')).join('') || `<div class="section hint">Nenhum módulo ou setor ainda.</div>`;
@@ -1451,7 +1451,7 @@ function fecharArea(uid_, aid){
     openForm(`Fechar ${a.nome}`, [
       {k:'motivo', label:'Motivo', type:'select', opts:['Reforma', 'Alagado'], v:'Reforma'},
       {k:'ini', label:'Fechado desde', type:'date', v: todayISO()},
-      {k:'prev', label:'Previsão de liberar (opcional)', type:'date', v:'', hint:'Só informativa. O local continua fechado até você tocar em 🔓 e reabrir.'}
+      {k:'prev', label:'Previsão de liberar (opcional)', type:'date', v:'', hint:'Só informativa. O local continua fechado até você tocar em Reabrir.'}
     ], v => {
       if (!v.ini) { alert('Informe a data.'); return false; }
       if (f.fechamentos.some(x => x.areaId === aid && x.ini <= v.ini && (!x.fim || v.ini < x.fim))) { alert('Já existe um fechamento deste local cobrindo essa data.'); return false; }
