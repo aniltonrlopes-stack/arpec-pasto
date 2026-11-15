@@ -1294,12 +1294,17 @@ const dataBR2ISO = s => { const m = String(s || '').match(/(\d\d)\/(\d\d)\/(\d{4
 const pesoKg = s => { const v = P(String(s || '').replace(/kg/i, '')); return v > 0 ? v : null; };
 function colDe(r, ...nomes){ for (const k of Object.keys(r)) if (nomes.some(n => norm(k).startsWith(norm(n)))) return r[k]; return ''; }
 
+// peso das crias por idade (meses → kg); entre os meses, interpola; abaixo de 1 mês usa o peso de 1 mês
+const PESO_CRIA = [[1, 50], [2, 80], [3, 110], [4, 140], [5, 160], [6, 190], [7, 210]];
+function idadeMeses(s){ const m = String(s || '').match(/(\d+)a\s*(\d+)m\s*(\d+)d/); return m ? +m[1] * 12 + +m[2] + +m[3] / 30.4 : null; }
+function pesoCria(m){ const T = PESO_CRIA; if (m <= T[0][0]) return T[0][1]; for (let i = 1; i < T.length; i++) if (m <= T[i][0]) return T[i-1][1] + (T[i][1] - T[i-1][1]) * (m - T[i-1][0]) / (T[i][0] - T[i-1][0]); return T[T.length-1][1]; }
 // Reconstrói onde cada animal estava no fim de cada dia com transferência.
 // Volta no tempo a partir da ficha (situação atual), desfazendo as transferências.
 function reconstruirLocais(ficha, transf){
   const dataFicha = dataBR2ISO(ficha.data) || todayISO();
   const A = ficha.linhas.map((r, i) => ({i, brinco: colDe(r, 'Brinco').trim(), idade: colDe(r, 'Idade'), sexo: colDe(r, 'Sexo'), cat: colDe(r, 'Categoria') || 'Sem categoria', loc: colDe(r, 'Local').trim(), peso: pesoKg(colDe(r, 'Peso'))}));
-  // animais sem peso: média da categoria (bezerros mamando ficam fora da UA)
+  // crias sem peso: peso pela idade (tabela da fazenda); demais sem peso: média da categoria
+  A.forEach(a => { if (!a.peso) { const m = idadeMeses(a.idade); if (m != null && m < 8) { a.peso = pesoCria(m); a.pesoEst = 'idade'; } } });
   const somaCat = {};
   A.forEach(a => { if (a.peso) { const s = somaCat[a.cat] = somaCat[a.cat] || [0, 0]; s[0] += a.peso; s[1]++; } });
   A.forEach(a => { if (!a.peso && somaCat[a.cat]) { a.peso = somaCat[a.cat][0] / somaCat[a.cat][1]; a.pesoEst = true; } });
@@ -1401,7 +1406,8 @@ function concluirImportSistema(){
   const msg = `${f.nome}\n\n${novos.length} lotações, de ${fmtDate(datas[0])} a ${fmtDate(datas[datas.length - 1])}` +
     (IMPSIS.transf ? ` (${R.nTransf} transferências)` : '') +
     `\n\nSituação em ${fmtDate(datas[datas.length - 1])}: ${ult.cab} cab · ${num(ult.ua, 1)} UA · ${num(ult.lotFaz)} UA/ha` +
-    (semPeso ? `\n\n• ${semPeso} animais sem peso (bezerros ao pé) não entram na UA.` : '') +
+    (R.A.some(a => a.pesoEst === 'idade') ? `\n\n• Crias sem pesagem: peso estimado pela idade (1 mês 50 kg … 7 meses 210 kg).` : '') +
+    (semPeso ? `\n• ${semPeso} animais sem peso não entram na UA.` : '') +
     (fora ? `\n• ${fora} animais em locais fora das pastagens.` : '') +
     (R.naoAchados ? `\n• ${R.naoAchados} transferências sem animal correspondente na ficha (ignoradas).` : '') +
     `\n• O peso usado em todas as datas é o peso atual da ficha.` +
