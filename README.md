@@ -8,4 +8,4 @@ Abrir no celular: https://aniltonrlopes-stack.github.io/arpec-pasto/ → menu �
 
 Diagnóstico inicial de gestão de pessoas (Método PASTO), com relatório em PDF para o cliente.
 
-Abrir no celular: https://aniltonrlopes-stack.github.io/arpec-pasto/diagnostico/ → menu ⋮ → **Instalar app**.
+Fica no repositório próprio **arpec-diagnostico**: https://aniltonrlopes-stack.github.io/arpec-diagnostico/
